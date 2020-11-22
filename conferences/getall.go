@@ -7,16 +7,16 @@ import (
 	"encore.dev/storage/sqldb"
 )
 
-//GetAllParams ...
+// GetAllParams defines the inputs used by the GetAll API method
 type GetAllParams struct {
 }
 
-// GetAllResponse ...
+// GetAllResponse defines the output returned by the GetAll API method
 type GetAllResponse struct {
 	Conferences []Conference
 }
 
-// GetAll retrieves all conferences
+// GetAll retrieves all conferences and events
 // encore:api public
 func GetAll(ctx context.Context, params *GetAllParams) (*GetAllResponse, error) {
 
