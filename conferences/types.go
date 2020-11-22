@@ -36,7 +36,7 @@ type EventSlot struct {
 	EndDate     time.Time
 	// DependsOn means that these two Slots need to be acquired together, user must either buy
 	// both Slots or pre-own one of the one it depends on.
-	DependsOn *EventSlot
+	// DependsOn *EventSlot // Currently removed as it broke encore
 	// PurchaseableFrom indicates when this item is on sale, for instance early bird tickets are the first
 	// ones to go on sale.
 	PurchaseableFrom time.Time
