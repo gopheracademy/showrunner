@@ -16,7 +16,9 @@ CREATE TABLE event(
   conference_id SERIAL NOT NULL REFERENCES conference(id)
 );
 
-INSERT INTO event (name, slug, start_date, end_date, location, conference_id) VALUES ('GopherCon 2020', 'gc-2020', '2020-11-09 17:00:00+00', '2020-11-13 23:45:00+00', "Online", 1);
+INSERT INTO event (name, slug, start_date, end_date, location, conference_id) VALUES ('GopherCon 2020', 'gc-2020', '2020-11-09 17:00:00+00', '2020-11-13 23:45:00+00', 'Online', 1);
+
+INSERT INTO event (name, slug, start_date, end_date, location, conference_id) VALUES ('GopherCon 2021', 'gc-2021', '2021-11-09 17:00:00+00', '2021-11-13 23:45:00+00', 'Florida', 1);
 
 CREATE TABLE event_slot(
   id SERIAL PRIMARY KEY,
