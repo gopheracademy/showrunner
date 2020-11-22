@@ -2,7 +2,9 @@ package conferences
 
 import (
 	"context"
-	"time"
+	"fmt"
+
+	"encore.dev/storage/sqldb"
 )
 
 //GetAllParams ...
@@ -17,38 +19,42 @@ type GetAllResponse struct {
 // GetAll retrieves all conferences
 // encore:api public
 func GetAll(ctx context.Context, params *GetAllParams) (*GetAllResponse, error) {
-	return &GetAllResponse{
-		Conferences: []Conference{
-			{
-				ID:   1,
-				Name: "Gophercon",
-				Slug: "gc",
-				Events: []Event{
-					{
-						ID:        1,
-						Name:      "GopherCon 2020",
-						Slug:      "gc-2020",
-						StartDate: time.Date(2020, time.November, 9, 17, 00, 00, 0, time.UTC),
-						EndDate:   time.Date(2020, time.November, 13, 23, 45, 00, 0, time.UTC),
-						Location:  "Online",
-						Slots: []EventSlot{
-							{
-								ID:          1,
-								Name:        "Pre-Conference Workshop: Getting a Jumpstart in Go",
-								Description: "Description goes here",
-								Cost:        400,
-								StartDate:   time.Date(2020, time.November, 9, 17, 00, 00, 0, time.UTC),
-								EndDate:     time.Date(2020, time.November, 9, 21, 00, 00, 0, time.UTC),
-								// DependsOn:         nil,
-								PurchaseableFrom:  time.Date(2020, time.May, 9, 17, 00, 00, 0, time.UTC),
-								PurchaseableUntil: time.Date(2020, time.November, 4, 17, 00, 00, 0, time.UTC),
-								AvailableToPublic: true,
-							},
-						},
-					},
-				},
-			},
-		},
-	}, nil
 
+	rows, err := sqldb.Query(ctx,
+		`SELECT conference.*, event.id, event.name, event.slug, event.start_date, event.end_date, event.location FROM conference LEFT JOIN event ON event.conference_id = conference.id
+		`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve all conferences: %w", err)
+	}
+
+	defer rows.Close()
+
+	idToConference := map[uint32]*Conference{}
+
+	for rows.Next() {
+		var conference Conference
+		var event Event
+
+		err := rows.Scan(&conference.ID, &conference.Name, &conference.Slug, &event.ID, &event.Name, &event.Slug, &event.StartDate, &event.EndDate, &event.Location)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan rows: %w", err)
+		}
+
+		if existingConference, ok := idToConference[conference.ID]; ok {
+			existingConference.Events = append(existingConference.Events, event)
+		} else {
+			conference.Events = append(conference.Events, event)
+			idToConference[conference.ID] = &conference
+		}
+	}
+
+	var conferences []Conference
+
+	for _, conference := range idToConference {
+		conferences = append(conferences, *conference)
+	}
+
+	return &GetAllResponse{
+		Conferences: conferences,
+	}, nil
 }
