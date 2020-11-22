@@ -147,7 +147,7 @@ func readAttendee(ctx context.Context, tx *sqldb.Tx, email string, id uint64) (*
 
 // createConferenceSlot saves a slot in the database.
 func createConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSlot, conferenceID int64) (*ConferenceSlot, error) {
-	var sqlSentence = `INSERT INTO event_slot (conference_id, name, descripcion, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public)
+	var sqlSentence = `INSERT INTO conference_slot (conference_id, name, descripcion, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public)
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
 	RETURNING conference_id, name, descripcion, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public`
 	var args = []interface{}{
@@ -163,7 +163,7 @@ func createConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSl
 		cslot.AvailableToPublic,
 	}
 	/*if e.DependsOn != nil {
-		sqlSentence = `INSERT INTO event_slot (conference_id, name, descripcion, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public, depends_on_id)
+		sqlSentence = `INSERT INTO conference_slot (conference_id, name, descripcion, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public, depends_on_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id, name, descripcion, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public`
 		args = append(args, e.DependsOn.ID)
@@ -189,21 +189,15 @@ func createConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSl
 	return &results, nil
 }
 
-type wrapConferenceSlot struct {
-	ConferenceSlot
-	DependsOnID uint64 `gaum:"field_name:depends_on_id"`
-	EventID     uint64 `gaum:"field_name:conference_id"`
-}
-
 func readConferenceSlotByID(ctx context.Context, tx *sqldb.Tx, id uint64, loadDeps bool) (*ConferenceSlot, error) {
 	results := ConferenceSlot{}
 	row := queryRow(ctx, tx,
 		`SELECT (id, name, descripcion, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public, conference_id, depends_on_id)
-	FROM event_slot 
+	FROM conference_slot 
 	WHERE id = $1`, id)
 
 	var dependsOnID uint64
-	var eventID uint64
+	var conferenceID uint64
 
 	err := row.Scan(&results.ID,
 		&results.Name,
@@ -215,13 +209,13 @@ func readConferenceSlotByID(ctx context.Context, tx *sqldb.Tx, id uint64, loadDe
 		&results.PurchaseableFrom,
 		&results.PurchaseableUntil,
 		&results.AvailableToPublic,
-		&eventID,
+		&conferenceID,
 		&dependsOnID)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("reading event slots by id: %w", err)
+		return nil, fmt.Errorf("reading conference slots by id: %w", err)
 	}
 
 	/*
@@ -233,22 +227,22 @@ func readConferenceSlotByID(ctx context.Context, tx *sqldb.Tx, id uint64, loadDe
 			}
 
 
-		event := def.Event{}
+		conference := Conference{}
 		row = queryRow(ctx, tx,
-			`SELECT id, name, slug, start_date, end_date, location FROM event WHERE id = $1`, eventID)
-		err = row.Scan(&event.ID, &event.Name, &event.Slug, &event.StartDate, &event.EndDate, &event.Location)
+			`SELECT id, name, slug, start_date, end_date, location FROM conference WHERE id = $1`, conferenceID)
+		err = row.Scan(&conference.ID, &conference.Name, &conference.Slug, &conference.StartDate, &conference.EndDate, &conference.Location)
 		if err != nil {
-			return nil, fmt.Errorf("reading event by id: %w", err)
+			return nil, fmt.Errorf("reading conference by id: %w", err)
 		}
 
-		results.Event = &event
+		results.Conference = &conference
 	*/
 	return &results, nil
 }
 
-// updateConferenceSlot updates event slot fields from the passed instance
+// updateConferenceSlot updates conference slot fields from the passed instance
 func updateConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSlot, conferenceID int64) error {
-	var sqlStatement = `UPDATE event_slot 
+	var sqlStatement = `UPDATE conference_slot 
 	SET conference_id = $1, name = $2, descripcion = $3, cost =$4, capacity=$5, 
 	start_date = $6, end_date = $7, purchaseable_form = $8, purchaseable_until = $9, 
 	available_to_public $10, depends_on_id = NULL
@@ -266,7 +260,7 @@ func updateConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSl
 		cslot.AvailableToPublic,
 	}
 	/* if e.DependsOn != nil {
-		sqlStatement = `UPDATE event_slot
+		sqlStatement = `UPDATE conference_slot
 	SET conference_id = $1, name = $2, descripcion = $3, cost =$4, capacity=$5,
 	start_date = $6, end_date = $7, purchaseable_form = $8, purchaseable_until = $9,
 	available_to_public $10, depends_on_id = $11
@@ -278,11 +272,11 @@ func updateConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSl
 	res, err := exec(ctx, tx, sqlStatement, args...)
 
 	if err != nil {
-		return fmt.Errorf("updating event slot: %w", err)
+		return fmt.Errorf("updating conference slot: %w", err)
 	}
 	ra, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("updting event slot: %w", err)
+		return fmt.Errorf("updting conference slot: %w", err)
 	}
 	if ra == 0 {
 		return fmt.Errorf("slot was not updated")
@@ -294,10 +288,10 @@ func updateConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSl
 // createSlotClaim saves a slot claim and returns it with the populated ID
 func createSlotClaim(ctx context.Context, tx *sqldb.Tx, slotClaim *SlotClaim) (*SlotClaim, error) {
 	var err error
-	// FIXME: Add a check for capacity not exceeded on event.
+	// FIXME: Add a check for capacity not exceeded on conference.
 	for i := 0; i < 3; i++ {
 		row := queryRow(ctx, tx,
-			`INSERT INTO slot_claim (ticket_id, redeemed, event_slot_id) VALUES ($1, $2, $3)
+			`INSERT INTO slot_claim (ticket_id, redeemed, conference_slot_id) VALUES ($1, $2, $3)
 		RETURNING id, ticket_id, redeemed`,
 			slotClaim.TicketID, slotClaim.Redeemed, slotClaim.ConferenceSlot.ID)
 
@@ -364,8 +358,8 @@ const (
 	tableClaimPayment                = "claim_payment"
 	tableFinancialInstrumentMoney    = "payment_method_money"
 	tableMoneyToPayment              = "payment_method_money_to_claim_payment"
-	tableFinancialInstrumentDiscount = "payment_method_event_discount"
-	tableDiscountToPayment           = "payment_method_event_discount_to_claim_payment"
+	tableFinancialInstrumentDiscount = "payment_method_conference_slotdiscount"
+	tableDiscountToPayment           = "payment_method_conference_slotdiscount_to_claim_payment"
 	tableFinancialInstrumentCredit   = "payment_method_credit_note"
 	tableCreditToPayment             = "payment_method_credit_note_to_claim_payment"
 )
@@ -409,7 +403,7 @@ func insertDiscountPayment(ctx context.Context, tx *sqldb.Tx, claimPaymentID uin
 	discount := PaymentMethodConferenceDiscount{}
 
 	row := queryRow(ctx, tx,
-		`INSERT INTO payment_method_event_discount (amount, detail) VALUES ($1, $2)
+		`INSERT INTO payment_method_conference_slotdiscount (amount, detail) VALUES ($1, $2)
 		RETURNING id, amount, detail`,
 		payment.Amount, payment.Detail)
 	err := row.Scan(&discount.ID, &discount.Amount, &discount.Detail)
@@ -418,7 +412,7 @@ func insertDiscountPayment(ctx context.Context, tx *sqldb.Tx, claimPaymentID uin
 	}
 
 	res, err := exec(ctx, tx,
-		`INSERT INTO payment_method_event_discount_to_claim_payment (payment_method_event_discount_id, claim_payment_id) VALUES ($1, $2)`,
+		`INSERT INTO payment_method_conference_slotdiscount_to_claim_payment (payment_method_conference_slotdiscount_id, claim_payment_id) VALUES ($1, $2)`,
 		discount.ID, claimPaymentID)
 
 	if err != nil {
@@ -451,7 +445,7 @@ func insertCreditPayment(ctx context.Context, tx *sqldb.Tx, claimPaymentID uint6
 	}
 
 	res, err := exec(ctx, tx,
-		`INSERT INTO payment_method_event_discount_to_claim_payment (payment_method_credit_note_to_claim_payment, claim_payment_id) VALUES ($1, $2)`,
+		`INSERT INTO payment_method_conference_slotdiscount_to_claim_payment (payment_method_credit_note_to_claim_payment, claim_payment_id) VALUES ($1, $2)`,
 		credit.ID, claimPaymentID)
 
 	if err != nil {
