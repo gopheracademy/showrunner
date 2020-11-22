@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"encore.dev/storage/sqldb"
-	"github.com/gopheracademy/manager/def"
 )
 
 // SQLStorage provides a Postgres Flavored storage backend to store ticketing information.
@@ -146,33 +145,31 @@ func readAttendee(ctx context.Context, tx *sqldb.Tx, email string, id uint64) (*
 	return &results, nil
 }
 
-const eventSlotTable = "event_slot"
-
-// createEventSlot saves a slot in the database.
-func createEventSlot(ctx context.Context, tx *sqldb.Tx, e *EventSlot) (*EventSlot, error) {
-	var sqlSentence = `INSERT INTO event_slot (event_id, name, descripcion, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public)
+// createConferenceSlot saves a slot in the database.
+func createConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSlot, conferenceID int64) (*ConferenceSlot, error) {
+	var sqlSentence = `INSERT INTO event_slot (conference_id, name, descripcion, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public)
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
-	RETURNING event_id, name, descripcion, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public`
+	RETURNING conference_id, name, descripcion, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public`
 	var args = []interface{}{
-		e.Event.ID,
-		e.Name,
-		e.Description,
-		e.Cost,
-		e.Capacity,
-		e.StartDate,
-		e.EndDate,
-		e.PurchaseableFrom,
-		e.PurchaseableUntil,
-		e.AvailableToPublic,
+		conferenceID,
+		cslot.Name,
+		cslot.Description,
+		cslot.Cost,
+		cslot.Capacity,
+		cslot.StartDate,
+		cslot.EndDate,
+		cslot.PurchaseableFrom,
+		cslot.PurchaseableUntil,
+		cslot.AvailableToPublic,
 	}
-	if e.DependsOn != nil {
-		sqlSentence = `INSERT INTO event_slot (event_id, name, descripcion, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public, depends_on_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) 
+	/*if e.DependsOn != nil {
+		sqlSentence = `INSERT INTO event_slot (conference_id, name, descripcion, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public, depends_on_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id, name, descripcion, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public`
 		args = append(args, e.DependsOn.ID)
-	}
+	}*/
 	row := queryRow(ctx, tx, sqlSentence, args...)
-	results := EventSlot{}
+	results := ConferenceSlot{}
 	err := row.Scan(&results.ID,
 		&results.Name,
 		&results.Description,
@@ -187,21 +184,21 @@ func createEventSlot(ctx context.Context, tx *sqldb.Tx, e *EventSlot) (*EventSlo
 		return nil, fmt.Errorf("creating new attendee: %w", err)
 	}
 
-	results.DependsOn = e.DependsOn
+	// results.DependsOn = e.DependsOn
 
 	return &results, nil
 }
 
-type wrapEventSlot struct {
-	EventSlot
+type wrapConferenceSlot struct {
+	ConferenceSlot
 	DependsOnID uint64 `gaum:"field_name:depends_on_id"`
-	EventID     uint64 `gaum:"field_name:event_id"`
+	EventID     uint64 `gaum:"field_name:conference_id"`
 }
 
-func readEventSlotByID(ctx context.Context, tx *sqldb.Tx, id uint64, loadDeps bool) (*EventSlot, error) {
-	results := EventSlot{}
+func readConferenceSlotByID(ctx context.Context, tx *sqldb.Tx, id uint64, loadDeps bool) (*ConferenceSlot, error) {
+	results := ConferenceSlot{}
 	row := queryRow(ctx, tx,
-		`SELECT (id, name, descripcion, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public, event_id, depends_on_id)
+		`SELECT (id, name, descripcion, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public, conference_id, depends_on_id)
 	FROM event_slot 
 	WHERE id = $1`, id)
 
@@ -227,58 +224,61 @@ func readEventSlotByID(ctx context.Context, tx *sqldb.Tx, id uint64, loadDeps bo
 		return nil, fmt.Errorf("reading event slots by id: %w", err)
 	}
 
-	if dependsOnID != 0 && loadDeps {
-		results.DependsOn, err = readEventSlotByID(ctx, tx, dependsOnID, false)
+	/*
+			if dependsOnID != 0 && loadDeps {
+				results.DependsOn, err = readConferenceSlotByID(ctx, tx, dependsOnID, false)
+				if err != nil {
+					return nil, fmt.Errorf("loading dependency: %w", err)
+				}
+			}
+
+
+		event := def.Event{}
+		row = queryRow(ctx, tx,
+			`SELECT id, name, slug, start_date, end_date, location FROM event WHERE id = $1`, eventID)
+		err = row.Scan(&event.ID, &event.Name, &event.Slug, &event.StartDate, &event.EndDate, &event.Location)
 		if err != nil {
-			return nil, fmt.Errorf("loading dependency: %w", err)
+			return nil, fmt.Errorf("reading event by id: %w", err)
 		}
-	}
 
-	event := def.Event{}
-	row = queryRow(ctx, tx,
-		`SELECT id, name, slug, start_date, end_date, location FROM event WHERE id = $1`, eventID)
-	err = row.Scan(&event.ID, &event.Name, &event.Slug, &event.StartDate, &event.EndDate, &event.Location)
-	if err != nil {
-		return nil, fmt.Errorf("reading event by id: %w", err)
-	}
-
-	results.Event = &event
+		results.Event = &event
+	*/
 	return &results, nil
 }
 
-// updateEventSlot updates event slot fields from the passed instance
-func updateEventSlot(ctx context.Context, tx *sqldb.Tx, e *EventSlot) error {
+// updateConferenceSlot updates event slot fields from the passed instance
+func updateConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSlot, conferenceID int64) error {
 	var sqlStatement = `UPDATE event_slot 
-	SET event_id = $1, name = $2, descripcion = $3, cost =$4, capacity=$5, 
+	SET conference_id = $1, name = $2, descripcion = $3, cost =$4, capacity=$5, 
 	start_date = $6, end_date = $7, purchaseable_form = $8, purchaseable_until = $9, 
 	available_to_public $10, depends_on_id = NULL
 	WHERE id = $11`
 	var args = []interface{}{
-		e.Event.ID,
-		e.Name,
-		e.Description,
-		e.Cost,
-		e.Capacity,
-		e.StartDate,
-		e.EndDate,
-		e.PurchaseableFrom,
-		e.PurchaseableUntil,
-		e.AvailableToPublic,
+		conferenceID,
+		cslot.Name,
+		cslot.Description,
+		cslot.Cost,
+		cslot.Capacity,
+		cslot.StartDate,
+		cslot.EndDate,
+		cslot.PurchaseableFrom,
+		cslot.PurchaseableUntil,
+		cslot.AvailableToPublic,
 	}
-	if e.DependsOn != nil {
-		sqlStatement = `UPDATE event_slot 
-	SET event_id = $1, name = $2, descripcion = $3, cost =$4, capacity=$5, 
-	start_date = $6, end_date = $7, purchaseable_form = $8, purchaseable_until = $9, 
+	/* if e.DependsOn != nil {
+		sqlStatement = `UPDATE event_slot
+	SET conference_id = $1, name = $2, descripcion = $3, cost =$4, capacity=$5,
+	start_date = $6, end_date = $7, purchaseable_form = $8, purchaseable_until = $9,
 	available_to_public $10, depends_on_id = $11
 	WHERE id = $12`
 		args = append(args, e.DependsOn.ID)
-	}
-	args = append(args, e.ID)
+	} */
+	args = append(args, cslot.ID)
 
 	res, err := exec(ctx, tx, sqlStatement, args...)
 
 	if err != nil {
-		return fmt.Errorf("updting event slot: %w", err)
+		return fmt.Errorf("updating event slot: %w", err)
 	}
 	ra, err := res.RowsAffected()
 	if err != nil {
@@ -299,7 +299,7 @@ func createSlotClaim(ctx context.Context, tx *sqldb.Tx, slotClaim *SlotClaim) (*
 		row := queryRow(ctx, tx,
 			`INSERT INTO slot_claim (ticket_id, redeemed, event_slot_id) VALUES ($1, $2, $3)
 		RETURNING id, ticket_id, redeemed`,
-			slotClaim.TicketID, slotClaim.Redeemed, slotClaim.EventSlot.ID)
+			slotClaim.TicketID, slotClaim.Redeemed, slotClaim.ConferenceSlot.ID)
 
 		results := SlotClaim{}
 		err = row.Scan(&results.ID, &results.TicketID, &results.Redeemed)
@@ -308,7 +308,7 @@ func createSlotClaim(ctx context.Context, tx *sqldb.Tx, slotClaim *SlotClaim) (*
 			return nil, fmt.Errorf("saving slot claim: %w", err)
 		}
 
-		results.EventSlot = slotClaim.EventSlot
+		results.ConferenceSlot = slotClaim.ConferenceSlot
 		return &results, nil
 	}
 	return nil, fmt.Errorf("failed to insert: %w", err)

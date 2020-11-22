@@ -9,7 +9,7 @@ import (
 )
 
 // claimSlots claims N slots for an attendee.
-func claimSlots(ctx context.Context, attendee *Attendee, slots ...EventSlot) ([]SlotClaim, error) {
+func claimSlots(ctx context.Context, attendee *Attendee, slots ...ConferenceSlot) ([]SlotClaim, error) {
 	tx, err := sqldb.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("beginning atomic operation: %w", err)
@@ -18,8 +18,8 @@ func claimSlots(ctx context.Context, attendee *Attendee, slots ...EventSlot) ([]
 	for i := range slots {
 		slot := slots[i]
 		sc := &SlotClaim{
-			EventSlot: &slot,
-			TicketID:  uuid.NewV4().String(),
+			ConferenceSlot: &slot,
+			TicketID:       uuid.NewV4().String(),
 		}
 		sc, err = createSlotClaim(ctx, tx, sc)
 		if err != nil {
@@ -124,7 +124,7 @@ func transferClaims(ctx context.Context,
 	}
 	for i := range claims {
 		if belongsToSource := sourceClaimsMap[claims[i].ID]; !belongsToSource {
-			return nil, nil, fmt.Errorf("%d claim for slot %s does not belong to %s", claims[i].ID, claims[i].EventSlot.Name, source.Email)
+			return nil, nil, fmt.Errorf("%d claim for slot %s does not belong to %s", claims[i].ID, claims[i].ConferenceSlot.Name, source.Email)
 		}
 	}
 	tx, err := sqldb.Begin(ctx)
