@@ -4,29 +4,29 @@ import (
 	"time"
 )
 
-// Conference is a brand like GopherCon
-type Conference struct {
-	ID     uint32
-	Name   string
-	Slug   string
-	Events []Event
+// Event is a brand like GopherCon
+type Event struct {
+	ID          uint32
+	Name        string
+	Slug        string
+	Conferences []Conference
 }
 
-// Event is an instance like GopherCon 2020
-type Event struct {
+// Conference is an instance like GopherCon 2020
+type Conference struct {
 	ID        uint32
 	Name      string
 	Slug      string
 	StartDate time.Time
 	EndDate   time.Time
 	Location  string
-	Slots     []EventSlot
+	Slots     []ConferenceSlot
 }
 
-// EventSlot holds information for any sellable/giftable slot we have in the event for
+// ConferenceSlot holds information for any sellable/giftable slot we have in the event for
 // a Talk or any other activity that requires admission.
 // store: "interface"
-type EventSlot struct {
+type ConferenceSlot struct {
 	ID          uint32
 	Name        string
 	Description string
@@ -36,7 +36,7 @@ type EventSlot struct {
 	EndDate     time.Time
 	// DependsOn means that these two Slots need to be acquired together, user must either buy
 	// both Slots or pre-own one of the one it depends on.
-	// DependsOn *EventSlot // Currently removed as it broke encore
+	// DependsOn *ConferenceSlot // Currently removed as it broke encore
 	// PurchaseableFrom indicates when this item is on sale, for instance early bird tickets are the first
 	// ones to go on sale.
 	PurchaseableFrom time.Time

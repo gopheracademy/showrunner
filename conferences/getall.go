@@ -13,7 +13,7 @@ type GetAllParams struct {
 
 // GetAllResponse defines the output returned by the GetAll API method
 type GetAllResponse struct {
-	Conferences []Conference
+	Events []Event
 }
 
 // GetAll retrieves all conferences and events
@@ -21,7 +21,7 @@ type GetAllResponse struct {
 func GetAll(ctx context.Context, params *GetAllParams) (*GetAllResponse, error) {
 
 	rows, err := sqldb.Query(ctx,
-		`SELECT conference.*, event.id, event.name, event.slug, event.start_date, event.end_date, event.location FROM conference LEFT JOIN event ON event.conference_id = conference.id
+		`SELECT event.*, conference.id, conference.name, conference.slug, conference.start_date, conference.end_date, conference.location FROM event LEFT JOIN conference ON conference.event_id = event.id
 		`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve all conferences: %w", err)
@@ -29,32 +29,34 @@ func GetAll(ctx context.Context, params *GetAllParams) (*GetAllResponse, error) 
 
 	defer rows.Close()
 
-	idToConference := map[uint32]*Conference{}
+	idToEvent := map[uint32]*Event{}
 
 	for rows.Next() {
-		var conference Conference
 		var event Event
+		var conference Conference
 
-		err := rows.Scan(&conference.ID, &conference.Name, &conference.Slug, &event.ID, &event.Name, &event.Slug, &event.StartDate, &event.EndDate, &event.Location)
+		conference.Slots = []ConferenceSlot{}
+
+		err := rows.Scan(&event.ID, &event.Name, &event.Slug, &conference.ID, &conference.Name, &conference.Slug, &conference.StartDate, &conference.EndDate, &conference.Location)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan rows: %w", err)
 		}
 
-		if existingConference, ok := idToConference[conference.ID]; ok {
-			existingConference.Events = append(existingConference.Events, event)
+		if existingEvent, ok := idToEvent[event.ID]; ok {
+			existingEvent.Conferences = append(existingEvent.Conferences, conference)
 		} else {
-			conference.Events = append(conference.Events, event)
-			idToConference[conference.ID] = &conference
+			event.Conferences = append(event.Conferences, conference)
+			idToEvent[event.ID] = &event
 		}
 	}
 
-	var conferences []Conference
+	events := []Event{}
 
-	for _, conference := range idToConference {
-		conferences = append(conferences, *conference)
+	for _, event := range idToEvent {
+		events = append(events, *event)
 	}
 
 	return &GetAllResponse{
-		Conferences: conferences,
+		Events: events,
 	}, nil
 }
