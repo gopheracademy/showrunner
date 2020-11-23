@@ -39,7 +39,7 @@ func claimSlots(ctx context.Context, attendee *Attendee, slots ...ConferenceSlot
 		return nil, fmt.Errorf("Updating claimed slots for attendee: %w", err)
 	}
 	if err := sqldb.Commit(tx); err != nil {
-		return nil, fmt.Errorf("confirming atomic operation: %w", err)
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 	return claims, nil
 }
