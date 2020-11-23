@@ -98,15 +98,15 @@ func readAttendee(ctx context.Context, tx *sqldb.Tx, email string, id uint64) (*
 	q := `SELECT id, email, coc_accepted FROM attendee`
 	args := []interface{}{}
 	if email != "" {
-		q += ` WHERE email = $1`
+		q = `SELECT id, email, coc_accepted FROM attendee WHERE email = $1`
 		args = append(args, email)
 	}
 	if email != "" && id != 0 {
-		q += `AND WHERE id = $2`
+		q = `SELECT id, email, coc_accepted FROM attendee WHERE email = $1 AND WHERE id = $2`
 		args = append(args, id)
 	}
 	if email == "" && id != 0 {
-		q += ` WHERE id = $1`
+		q = `SELECT id, email, coc_accepted FROM attendee WHERE id = $1`
 		args = append(args, id)
 	}
 	row := queryRow(ctx, tx, q, args...)
