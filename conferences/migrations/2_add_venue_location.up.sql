@@ -7,7 +7,7 @@ CREATE TABLE venue(
   address TEXT NOT NULL,
   directions TEXT NOT NULL, 
   google_maps_url TEXT NOT NULL,
-  capacity int
+  capacity INT NOT NULL
 );
 
 INSERT INTO venue (
