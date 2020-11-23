@@ -60,6 +60,7 @@ type Venue struct {
 	Capacity      int
 }
 
+// Location defines a location for a venue, such as a room or event space
 type Location struct {
 	ID            uint32
 	Name          string
