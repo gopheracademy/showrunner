@@ -52,8 +52,7 @@ func createAttendee(ctx context.Context, tx *sqldb.Tx, a *Attendee) (*Attendee, 
 		return nil, fmt.Errorf("creating or fetching attendee: %w", err)
 	}
 
-	newClaims := make([]SlotClaim, len(a.Claims))
-	for i, c := range a.Claims {
+	for _, c := range a.Claims {
 		res, err := exec(ctx, tx,
 			`INSERT INTO attendee_to_slot_claims (attendee_id, slot_claim_id) 
 			VALUES ($1, $2) 
@@ -70,10 +69,9 @@ func createAttendee(ctx context.Context, tx *sqldb.Tx, a *Attendee) (*Attendee, 
 		if ra == 0 {
 			return nil, fmt.Errorf("could not create claim")
 		}
-		newClaims[i] = c
 	}
 
-	result.Claims = newClaims
+	result.Claims = a.Claims
 	return &result, nil
 }
 
