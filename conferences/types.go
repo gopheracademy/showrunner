@@ -2,6 +2,8 @@ package conferences
 
 import (
 	"time"
+
+	"github.com/gofrs/uuid"
 )
 
 // Event is a brand like GopherCon
@@ -30,7 +32,7 @@ type ConferenceSlot struct {
 	ID          uint32
 	Name        string
 	Description string
-	Cost        int64
+	Cost        int
 	Capacity    int // int should be enough even if we organize glastonbury
 	StartDate   time.Time
 	EndDate     time.Time
@@ -74,47 +76,47 @@ type Location struct {
 
 // ClaimPayment represents a payment for N claims
 type ClaimPayment struct {
-	ID uint64 `gaum:"field_name:id"`
-	// ClaimsPayed would be what in a bill one see as detail.
-	ClaimsPayed []*SlotClaim
-	Payment     []FinancialInstrument
-	Invoice     string `gaum:"field_name:invoice"` // let us fill this once we know how to invoice
+	ID uint64
+	// ClaimsPaid would be what in a bill one see as detail.
+	ClaimsPaid []*SlotClaim
+	Payment    []FinancialInstrument
+	Invoice    string // let us fill this once we know how to invoice
 }
 
 // TotalDue returns the total cost to cover by this payment.
 func (c *ClaimPayment) TotalDue() int64 {
-	var totalDue int64 = 0
-	for _, sc := range c.ClaimsPayed {
+	var totalDue int = 0
+	for _, sc := range c.ClaimsPaid {
 		totalDue = totalDue + sc.ConferenceSlot.Cost
 	}
-	return totalDue
+	return int64(totalDue)
 }
 
 // Fulfilled returns true if the payment of this invoice has been fulfilled
 func (c *ClaimPayment) Fulfilled() bool {
 	totalDue := c.TotalDue()
-	f, _ := PaymentBalanced(totalDue, c.Payment...)
-	b, _ := DebtBalanced(c.Payment...)
+	f, _ := paymentBalanced(totalDue, c.Payment...)
+	b, _ := debtBalanced(c.Payment...)
 	return f && b
 }
 
 // SlotClaim represents one occupancy of one slot.
 type SlotClaim struct {
-	ID             uint64 `gaum:"field_name:id"`
+	ID             uint64
 	ConferenceSlot *ConferenceSlot
 	// TicketID should only be valid when combined with the correct Attendee ID/Email
-	TicketID string `gaum:"field_name:ticket_id"` // uuid
+	TicketID uuid.UUID
 	// Redeemed represents whether this has been used (ie the Attendee enrolled in front desk
 	// or into the online conf system) until this is not true, transfer/refund might be possible.
-	Redeemed bool `gaum:"field_name:redeemed"`
+	Redeemed bool
 }
 
 // Attendee is a person attending one or more Slots of the Conference.
 type Attendee struct {
-	ID    uint64 `gaum:"field_name:id"`
-	Email string `gaum:"field_name:email"`
+	ID    uint64
+	Email string
 	// CoCAccepted, claims cannot be used without this.
-	CoCAccepted bool `gaum:"field_name:co_c_accepted"`
+	CoCAccepted bool
 	Claims      []SlotClaim
 }
 
@@ -122,9 +124,9 @@ type Attendee struct {
 
 // PaymentMethodMoney represents a payment in cash.
 type PaymentMethodMoney struct {
-	ID         uint64 `gaum:"field_name:id"`
-	PaymentRef string `gaum:"field_name:ref"`    // stripe payment ID/Log?
-	Amount     int64  `gaum:"field_name:amount"` // Money is handled in ints to ease use of OTO, do not divide
+	ID         uint64
+	PaymentRef string // stripe payment ID/Log?
+	Amount     int64  // Money is handled in cents as it is done by our payment processor (stripe)
 }
 
 // Total implements FinancialInstrument
@@ -141,10 +143,10 @@ var _ FinancialInstrument = &PaymentMethodMoney{}
 
 // PaymentMethodConferenceDiscount represents a discount issued by the event.
 type PaymentMethodConferenceDiscount struct {
-	ID uint64 `gaum:"field_name:id"`
+	ID uint64
 	// Detail describes what kind of discount was issued (ie 100% sponsor, 30% grant)
-	Detail string `gaum:"field_name:detail"`
-	Amount int64  `gaum:"field_name:amount"` // Money is handled in ints to ease use of OTO, do not divide
+	Detail string
+	Amount int64 // Money is handled in cents as it is done by our payment processor (stripe)
 }
 
 // Total implements FinancialInstrument
@@ -161,9 +163,9 @@ var _ FinancialInstrument = &PaymentMethodConferenceDiscount{}
 
 // PaymentMethodCreditNote represents credit extended to defer payment.
 type PaymentMethodCreditNote struct {
-	ID     uint64 `gaum:"field_name:id"`
-	Detail string `gaum:"field_name:detail"`
-	Amount int64  `gaum:"field_name:amount"` // Money is handled in ints to ease use of OTO, do not divide
+	ID     uint64
+	Detail string
+	Amount int64 // Money is handled in cents as it is done by our payment processor (stripe)
 }
 
 // Total implements FinancialInstrument
@@ -192,7 +194,6 @@ const (
 )
 
 // FinancialInstrument represents any kind of instrument used to cover a debt.
-// oto: "skip"
 type FinancialInstrument interface {
 	// Total is the total amount fulfilled by this instrument
 	Total() int64
@@ -200,9 +201,9 @@ type FinancialInstrument interface {
 	Type() AssetType
 }
 
-// PaymentBalanced returns true or false depending on balancing status and missing
+// paymentBalanced returns true or false depending on balancing status and missing
 // payment amount if any.
-func PaymentBalanced(amount int64, payments ...FinancialInstrument) (bool, int64) {
+func paymentBalanced(amount int64, payments ...FinancialInstrument) (bool, int64) {
 	var receivables int64 = 0
 	var received int64 = 0
 	for _, p := range payments {
@@ -217,9 +218,9 @@ func PaymentBalanced(amount int64, payments ...FinancialInstrument) (bool, int64
 	return missing <= 0, missing
 }
 
-// DebtBalanced returns true if all credit notes or similar instruments have been covered or an
+// debtBalanced returns true if all credit notes or similar instruments have been covered or an
 // amount if not.
-func DebtBalanced(payments ...FinancialInstrument) (bool, int64) {
+func debtBalanced(payments ...FinancialInstrument) (bool, int64) {
 	var receivables int64 = 0
 	var received int64 = 0
 	for _, p := range payments {

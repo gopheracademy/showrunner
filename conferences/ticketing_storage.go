@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"encore.dev/storage/sqldb"
@@ -47,22 +48,17 @@ func createAttendee(ctx context.Context, tx *sqldb.Tx, a *Attendee) (*Attendee, 
 		"INSERT INTO attendee (email, coc_accepted) VALUES ($1, $2) RETURNING id, email, coc_accepted",
 		a.Email, a.CoCAccepted)
 
-	if row == nil {
-		return nil, fmt.Errorf("new attendee was not created")
-	}
-
 	if err := row.Scan(&result.ID, &result.Email, &result.CoCAccepted); err != nil {
 		return nil, fmt.Errorf("creating or fetching attendee: %w", err)
 	}
 
 	newClaims := make([]SlotClaim, len(a.Claims))
-	for i := range a.Claims {
-		c := a.Claims[i]
+	for i, c := range a.Claims {
 		res, err := exec(ctx, tx,
 			`INSERT INTO attendee_to_slot_claims (attendee_id, slot_claim_id) 
 			VALUES ($1, $2) 
-		ON CONFLICT ON CONSTRAINT slot_claim_id_is_unique DO UPDATE SET attendee_id = $3`,
-			result.ID, c.ID, result.ID)
+		ON CONFLICT ON CONSTRAINT slot_claim_id_is_unique DO UPDATE SET attendee_id = EXCLUDED.attendee_id`,
+			result.ID, c.ID)
 		if err != nil {
 			return nil, fmt.Errorf("inserting attendee claims: %w", err)
 		}
@@ -147,9 +143,9 @@ func readAttendee(ctx context.Context, tx *sqldb.Tx, email string, id uint64) (*
 
 // createConferenceSlot saves a slot in the database.
 func createConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSlot, conferenceID int64) (*ConferenceSlot, error) {
-	var sqlSentence = `INSERT INTO conference_slot (conference_id, name, descripcion, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public)
+	var sqlSentence = `INSERT INTO conference_slot (conference_id, name, description, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public)
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
-	RETURNING conference_id, name, descripcion, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public`
+	RETURNING conference_id, name, description, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public`
 	var args = []interface{}{
 		conferenceID,
 		cslot.Name,
@@ -163,9 +159,9 @@ func createConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSl
 		cslot.AvailableToPublic,
 	}
 	/*if e.DependsOn != nil {
-		sqlSentence = `INSERT INTO conference_slot (conference_id, name, descripcion, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public, depends_on_id)
+		sqlSentence = `INSERT INTO conference_slot (conference_id, name, description, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public, depends_on_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-		RETURNING id, name, descripcion, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public`
+		RETURNING id, name, description, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public`
 		args = append(args, e.DependsOn.ID)
 	}*/
 	row := queryRow(ctx, tx, sqlSentence, args...)
@@ -181,7 +177,7 @@ func createConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSl
 		&results.PurchaseableUntil,
 		&results.AvailableToPublic)
 	if err != nil {
-		return nil, fmt.Errorf("creating new attendee: %w", err)
+		return nil, fmt.Errorf("creating new conference slot: %w", err)
 	}
 
 	// results.DependsOn = e.DependsOn
@@ -192,11 +188,10 @@ func createConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSl
 func readConferenceSlotByID(ctx context.Context, tx *sqldb.Tx, id uint64, loadDeps bool) (*ConferenceSlot, error) {
 	results := ConferenceSlot{}
 	row := queryRow(ctx, tx,
-		`SELECT (id, name, descripcion, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public, conference_id, depends_on_id)
+		`SELECT (id, name, description, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public, conference_id)
 	FROM conference_slot 
 	WHERE id = $1`, id)
 
-	var dependsOnID uint64
 	var conferenceID uint64
 
 	err := row.Scan(&results.ID,
@@ -209,8 +204,7 @@ func readConferenceSlotByID(ctx context.Context, tx *sqldb.Tx, id uint64, loadDe
 		&results.PurchaseableFrom,
 		&results.PurchaseableUntil,
 		&results.AvailableToPublic,
-		&conferenceID,
-		&dependsOnID)
+		&conferenceID)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -243,9 +237,9 @@ func readConferenceSlotByID(ctx context.Context, tx *sqldb.Tx, id uint64, loadDe
 // updateConferenceSlot updates conference slot fields from the passed instance
 func updateConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSlot, conferenceID int64) error {
 	var sqlStatement = `UPDATE conference_slot 
-	SET conference_id = $1, name = $2, descripcion = $3, cost =$4, capacity=$5, 
+	SET conference_id = $1, name = $2, description = $3, cost =$4, capacity=$5, 
 	start_date = $6, end_date = $7, purchaseable_form = $8, purchaseable_until = $9, 
-	available_to_public $10, depends_on_id = NULL
+	available_to_public $10
 	WHERE id = $11`
 	var args = []interface{}{
 		conferenceID,
@@ -261,7 +255,7 @@ func updateConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSl
 	}
 	/* if e.DependsOn != nil {
 		sqlStatement = `UPDATE conference_slot
-	SET conference_id = $1, name = $2, descripcion = $3, cost =$4, capacity=$5,
+	SET conference_id = $1, name = $2, description = $3, cost =$4, capacity=$5,
 	start_date = $6, end_date = $7, purchaseable_form = $8, purchaseable_until = $9,
 	available_to_public $10, depends_on_id = $11
 	WHERE id = $12`
@@ -276,10 +270,10 @@ func updateConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSl
 	}
 	ra, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("updting conference slot: %w", err)
+		return fmt.Errorf("failed to get number of rows affected by query: %w", err)
 	}
 	if ra == 0 {
-		return fmt.Errorf("slot was not updated")
+		return fmt.Errorf("no such slot")
 	}
 
 	return nil
@@ -288,24 +282,21 @@ func updateConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSl
 // createSlotClaim saves a slot claim and returns it with the populated ID
 func createSlotClaim(ctx context.Context, tx *sqldb.Tx, slotClaim *SlotClaim) (*SlotClaim, error) {
 	var err error
-	// FIXME: Add a check for capacity not exceeded on conference.
-	for i := 0; i < 3; i++ {
-		row := queryRow(ctx, tx,
-			`INSERT INTO slot_claim (ticket_id, redeemed, conference_slot_id) VALUES ($1, $2, $3)
+
+	row := queryRow(ctx, tx,
+		`INSERT INTO slot_claim (ticket_id, redeemed, conference_slot_id) VALUES ($1, $2, $3)
 		RETURNING id, ticket_id, redeemed`,
-			slotClaim.TicketID, slotClaim.Redeemed, slotClaim.ConferenceSlot.ID)
+		slotClaim.TicketID, slotClaim.Redeemed, slotClaim.ConferenceSlot.ID)
 
-		results := SlotClaim{}
-		err = row.Scan(&results.ID, &results.TicketID, &results.Redeemed)
+	results := SlotClaim{}
+	err = row.Scan(&results.ID, &results.TicketID, &results.Redeemed)
 
-		if err != nil {
-			return nil, fmt.Errorf("saving slot claim: %w", err)
-		}
-
-		results.ConferenceSlot = slotClaim.ConferenceSlot
-		return &results, nil
+	if err != nil {
+		return nil, fmt.Errorf("saving slot claim: %w", err)
 	}
-	return nil, fmt.Errorf("failed to insert: %w", err)
+
+	results.ConferenceSlot = slotClaim.ConferenceSlot
+	return &results, nil
 }
 
 const (
@@ -332,8 +323,8 @@ func updateAttendee(ctx context.Context, tx *sqldb.Tx, attendee *Attendee) (*Att
 		return nil, fmt.Errorf("attendee was not updated")
 	}
 
-	for i := range attendee.Claims {
-		c := attendee.Claims[i]
+	for _, c := range attendee.Claims {
+
 		res, err = exec(ctx, tx,
 			`INSERT INTO attendee_to_slot_claims (attendee_id, slot_claim_id) 
 			VALUES ($1, $2) 
@@ -344,10 +335,10 @@ func updateAttendee(ctx context.Context, tx *sqldb.Tx, attendee *Attendee) (*Att
 		}
 		ra, err := res.RowsAffected()
 		if err != nil {
-			return nil, fmt.Errorf("inserting attendee claims: %w", err)
+			return nil, fmt.Errorf("failed to find rows affected by update: %w", err)
 		}
 		if ra == 0 {
-			return nil, fmt.Errorf("could not create claim")
+			return nil, fmt.Errorf("no such attedee")
 		}
 	}
 
@@ -365,7 +356,7 @@ const (
 )
 
 func insertMoneyPayment(ctx context.Context, tx *sqldb.Tx, claimPaymentID uint64, payment *PaymentMethodMoney) (*PaymentMethodMoney, error) {
-	if payment.ID != 0 { // BIGSERIAL starts in 1
+	if payment.ID != 0 { // SERIAL starts in 1
 		return payment, nil
 	}
 	money := PaymentMethodMoney{}
@@ -397,7 +388,7 @@ func insertMoneyPayment(ctx context.Context, tx *sqldb.Tx, claimPaymentID uint64
 }
 
 func insertDiscountPayment(ctx context.Context, tx *sqldb.Tx, claimPaymentID uint64, payment *PaymentMethodConferenceDiscount) (*PaymentMethodConferenceDiscount, error) {
-	if payment.ID != 0 { // BIGSERIAL starts in 1
+	if payment.ID != 0 { // SERIAL starts in 1
 		return payment, nil
 	}
 	discount := PaymentMethodConferenceDiscount{}
@@ -416,11 +407,11 @@ func insertDiscountPayment(ctx context.Context, tx *sqldb.Tx, claimPaymentID uin
 		discount.ID, claimPaymentID)
 
 	if err != nil {
-		return nil, fmt.Errorf("relating financial instrument money to payment: %w", err)
+		return nil, fmt.Errorf("relating financial instrument discount to payment: %w", err)
 	}
 	ra, err := res.RowsAffected()
 	if err != nil {
-		return nil, fmt.Errorf("relating financial instrument money to payment: %w", err)
+		return nil, fmt.Errorf("relating financial instrument discount to payment: %w", err)
 	}
 	if ra == 0 {
 		return nil, fmt.Errorf("failed to claim payment")
@@ -430,7 +421,7 @@ func insertDiscountPayment(ctx context.Context, tx *sqldb.Tx, claimPaymentID uin
 }
 
 func insertCreditPayment(ctx context.Context, tx *sqldb.Tx, claimPaymentID uint64, payment *PaymentMethodCreditNote) (*PaymentMethodCreditNote, error) {
-	if payment.ID != 0 { // BIGSERIAL starts in 1
+	if payment.ID != 0 { // SERIAL starts in 1
 		return payment, nil
 	}
 	credit := PaymentMethodCreditNote{}
@@ -495,7 +486,7 @@ func createClaimPayment(ctx context.Context, tx *sqldb.Tx, c *ClaimPayment) (*Cl
 			return nil, fmt.Errorf("not sure how to process payments of type %T", cp)
 		}
 	}
-	claimPayments.ClaimsPayed = c.ClaimsPayed
+	claimPayments.ClaimsPaid = c.ClaimsPaid
 	claimPayments.Payment = processedPayments
 	return &claimPayments, nil
 }
@@ -541,10 +532,10 @@ func updateClaimPayment(ctx context.Context, tx *sqldb.Tx, c *ClaimPayment) (*Cl
 		}
 	}
 	newClaim := ClaimPayment{
-		ID:          c.ID,
-		ClaimsPayed: c.ClaimsPayed,
-		Payment:     processedPayments,
-		Invoice:     c.Invoice,
+		ID:         c.ID,
+		ClaimsPaid: c.ClaimsPaid,
+		Payment:    processedPayments,
+		Invoice:    c.Invoice,
 	}
 	return &newClaim, nil
 }
@@ -570,11 +561,11 @@ func changeSlotClaimOwner(ctx context.Context, tx *sqldb.Tx, slots []SlotClaim, 
 	idHolders := make([]string, 0, len(slots))
 	for i, slot := range slots {
 		if slot.ID == 0 {
-			return nil, nil, fmt.Errorf("some slot claims lack IDs, perhaps the have not been saved yet")
+			return nil, nil, fmt.Errorf("some slot claims lack IDs, perhaps they have not been saved yet")
 		}
 		claimIDs = append(claimIDs, slot.ID)
 		claimIDsIndex[slot.ID] = true
-		idHolders = append(idHolders, fmt.Sprintf("%d", i+3))
+		idHolders = append(idHolders, strconv.Itoa(i+3))
 	}
 	args := append([]interface{}{target.ID, source.ID}, claimIDs...)
 	res, err := exec(ctx, tx,
@@ -582,23 +573,23 @@ func changeSlotClaimOwner(ctx context.Context, tx *sqldb.Tx, slots []SlotClaim, 
 		args...)
 
 	if err != nil {
-		return nil, nil, fmt.Errorf("chaingin slot claims ownershio: %w", err)
+		return nil, nil, fmt.Errorf("changing slot claims ownershio: %w", err)
 	}
 	affected, err := res.RowsAffected()
 	if err != nil {
-		return nil, nil, fmt.Errorf("chaingin slot claims ownershio: %w", err)
+		return nil, nil, fmt.Errorf("changing slot claims ownershio: %w", err)
 	}
 	if int64(len(slots)) != affected {
 		return nil, nil, fmt.Errorf("got %d claims to change but only changed %d", len(slots), affected)
 	}
 
 	newClaims := make([]SlotClaim, 0, len(source.Claims)-len(claimIDs))
-	for i := range source.Claims {
-		if claimIDsIndex[source.Claims[i].ID] {
-			target.Claims = append(target.Claims, source.Claims[i])
+	for _, claim := range source.Claims {
+		if claimIDsIndex[claim.ID] {
+			target.Claims = append(target.Claims, claim)
 			continue
 		}
-		newClaims = append(newClaims, source.Claims[i])
+		newClaims = append(newClaims, claim)
 	}
 	source.Claims = newClaims
 	return source, target, nil

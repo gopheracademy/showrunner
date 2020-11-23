@@ -5,28 +5,32 @@ import (
 	"fmt"
 
 	"encore.dev/storage/sqldb"
-	uuid "github.com/satori/go.uuid"
+	"github.com/gofrs/uuid"
 )
 
 // claimSlots claims N slots for an attendee.
-func claimSlots(ctx context.Context, attendee *Attendee, slots ...ConferenceSlot) ([]SlotClaim, error) {
+func claimSlots(ctx context.Context, attendee *Attendee, slots []ConferenceSlot) ([]SlotClaim, error) {
 	tx, err := sqldb.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start transaction: %w", err)
 	}
-	var claims = make([]SlotClaim, 0, len(slots))
+	var claims = make([]SlotClaim, len(slots))
+	ticketID, err := uuid.DefaultGenerator.NewV4()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate an uuid for the ticket id: %w", err)
+	}
 	for i := range slots {
 		slot := slots[i]
 		sc := &SlotClaim{
 			ConferenceSlot: &slot,
-			TicketID:       uuid.NewV4().String(),
+			TicketID:       ticketID,
 		}
 		sc, err = createSlotClaim(ctx, tx, sc)
 		if err != nil {
 			if atomicErr := sqldb.Rollback(tx); atomicErr != nil {
-				err = fmt.Errorf("%w (also cancelling atomic operation: %v)", err, atomicErr)
+				err = fmt.Errorf("%w (also rolling back transaction: %v)", err, atomicErr)
 			}
-			return nil, fmt.Errorf("Claiming a slot: %w", err)
+			return nil, fmt.Errorf("claiming a slot: %w", err)
 		}
 		claims[i] = *sc
 	}
@@ -34,7 +38,7 @@ func claimSlots(ctx context.Context, attendee *Attendee, slots ...ConferenceSlot
 	_, err = updateAttendee(ctx, tx, attendee)
 	if err != nil {
 		if atomicErr := sqldb.Rollback(tx); atomicErr != nil {
-			err = fmt.Errorf("%w (also cancelling atomic operation: %v)", err, atomicErr)
+			err = fmt.Errorf("%w (also rolling back transaction: %v)", err, atomicErr)
 		}
 		return nil, fmt.Errorf("Updating claimed slots for attendee: %w", err)
 	}
@@ -52,23 +56,23 @@ func payClaims(ctx context.Context, attendee *Attendee, claims []SlotClaim,
 		ptrClaims[i] = &claims[i]
 	}
 	claimPayment := &ClaimPayment{
-		ClaimsPayed: ptrClaims,
-		Payment:     payments,
+		ClaimsPaid: ptrClaims,
+		Payment:    payments,
 	}
 	tx, err := sqldb.Begin(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("beginning atomic operation: %w", err)
+		return nil, fmt.Errorf("beginning transaction: %w", err)
 	}
 
 	claimPayment, err = createClaimPayment(ctx, tx, claimPayment)
 	if err != nil {
 		if atomicErr := sqldb.Rollback(tx); atomicErr != nil {
-			err = fmt.Errorf("%w (also cancelling atomic operation: %v)", err, atomicErr)
+			err = fmt.Errorf("%w (also rolling back transaction: %v)", err, atomicErr)
 		}
 		return nil, fmt.Errorf("paying for claims: %w", err)
 	}
 	if err := sqldb.Commit(tx); err != nil {
-		return nil, fmt.Errorf("confirming atomic operation: %w", err)
+		return nil, fmt.Errorf("committing transaction: %w", err)
 	}
 
 	return claimPayment, nil
@@ -89,26 +93,27 @@ func coverCredit(ctx context.Context,
 	existingPayment *ClaimPayment,
 	payments []FinancialInstrument) error {
 	for i := range payments {
-		if payments[i].Type() == ATReceivable {
-			return &ErrInvalidCurrency{currencyType: payments[i].Type()}
+		payment := payments[i]
+		if payment.Type() == ATReceivable {
+			return &ErrInvalidCurrency{currencyType: payment.Type()}
 		}
-		existingPayment.Payment = append(existingPayment.Payment, payments[i])
+		existingPayment.Payment = append(existingPayment.Payment, payment)
 	}
 	tx, err := sqldb.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("beginning atomic operation: %w", err)
+		return fmt.Errorf("beginning transaction: %w", err)
 	}
 	_, err = updateClaimPayment(ctx, tx, existingPayment)
 	if err != nil {
 		if atomicErr := sqldb.Rollback(tx); atomicErr != nil {
-			err = fmt.Errorf("%w (also cancelling atomic operation: %v)", err, atomicErr)
+			err = fmt.Errorf("%w (also rolling back transaction: %v)", err, atomicErr)
 		}
 
 		return fmt.Errorf("saving new payments %w", err)
 	}
 
 	if err := sqldb.Commit(tx); err != nil {
-		return fmt.Errorf("confirming atomic operation: %w", err)
+		return fmt.Errorf("also rolling back transaction: %w", err)
 	}
 
 	return nil
@@ -119,26 +124,26 @@ func transferClaims(ctx context.Context,
 	source, target *Attendee, claims []SlotClaim) (*Attendee, *Attendee, error) {
 	var err error
 	sourceClaimsMap := map[uint64]bool{}
-	for i := range source.Claims {
-		sourceClaimsMap[source.Claims[i].ID] = true
+	for _, claim := range source.Claims {
+		sourceClaimsMap[claim.ID] = true
 	}
-	for i := range claims {
-		if belongsToSource := sourceClaimsMap[claims[i].ID]; !belongsToSource {
-			return nil, nil, fmt.Errorf("%d claim for slot %s does not belong to %s", claims[i].ID, claims[i].ConferenceSlot.Name, source.Email)
+	for _, claim := range claims {
+		if belongsToSource := sourceClaimsMap[claim.ID]; !belongsToSource {
+			return nil, nil, fmt.Errorf("%d claim for slot %s does not belong to %s", claim.ID, claim.ConferenceSlot.Name, source.Email)
 		}
 	}
 	tx, err := sqldb.Begin(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("beginning atomic operation: %w", err)
+		return nil, nil, fmt.Errorf("beginning transaction: %w", err)
 	}
 	if source, target, err = changeSlotClaimOwner(ctx, tx, claims, source, target); err != nil {
 		if atomicErr := sqldb.Rollback(tx); atomicErr != nil {
-			err = fmt.Errorf("%w (also cancelling atomic operation: %v)", err, atomicErr)
+			err = fmt.Errorf("%w (also rolling back transaction: %v)", err, atomicErr)
 		}
 		return nil, nil, fmt.Errorf("reowning slot claim: %w", err)
 	}
 	if err := sqldb.Commit(tx); err != nil {
-		return nil, nil, fmt.Errorf("confirming atomic operation: %w", err)
+		return nil, nil, fmt.Errorf("committing transaction: %w", err)
 	}
 
 	return source, target, nil
