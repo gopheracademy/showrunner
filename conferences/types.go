@@ -217,7 +217,7 @@ func PaymentBalanced(amount int64, payments ...FinancialInstrument) (bool, int64
 	return missing <= 0, missing
 }
 
-// DebtBalanced returns true if all cretid notes or similar instruments have been covered or an
+// DebtBalanced returns true if all credit notes or similar instruments have been covered or an
 // amount if not.
 func DebtBalanced(payments ...FinancialInstrument) (bool, int64) {
 	var receivables int64 = 0
