@@ -125,7 +125,7 @@ func readAttendee(ctx context.Context, tx *sqldb.Tx, email string, id uint64) (*
 	JOIN attendees_to_slot_claims ON slot_claim.id = attendees_to_slot_claims.slot_claim_id
 	WHERE attendees_to_slot_claims.id = $1`,
 		results.ID)
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil {
 		return nil, fmt.Errorf("querying claims for attendee: %w", err)
 	}
 	for rows.Next() {
