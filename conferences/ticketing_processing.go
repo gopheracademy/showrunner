@@ -12,7 +12,7 @@ import (
 func claimSlots(ctx context.Context, attendee *Attendee, slots ...ConferenceSlot) ([]SlotClaim, error) {
 	tx, err := sqldb.Begin(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("beginning atomic operation: %w", err)
+		return nil, fmt.Errorf("failed to start transaction: %w", err)
 	}
 	var claims = make([]SlotClaim, 0, len(slots))
 	for i := range slots {
