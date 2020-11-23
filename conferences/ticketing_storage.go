@@ -4,10 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strconv"
-	"strings"
 
 	"encore.dev/storage/sqldb"
+	"github.com/lib/pq"
 )
 
 // SQLStorage provides a Postgres Flavored storage backend to store ticketing information.
@@ -554,21 +553,19 @@ func changeSlotClaimOwner(ctx context.Context, tx *sqldb.Tx, slots []SlotClaim, 
 		return nil, nil, fmt.Errorf("the passed source lacks those claims")
 	}
 
-	claimIDs := make([]interface{}, 0, len(slots))
-	claimIDsIndex := map[uint64]bool{}
-	idHolders := make([]string, 0, len(slots))
-	for i, slot := range slots {
+	claimIDs := make([]int64, 0, len(slots))
+	claimIDsIndex := map[int64]bool{}
+	for _, slot := range slots {
 		if slot.ID == 0 {
 			return nil, nil, fmt.Errorf("some slot claims lack IDs, perhaps they have not been saved yet")
 		}
 		claimIDs = append(claimIDs, slot.ID)
 		claimIDsIndex[slot.ID] = true
-		idHolders = append(idHolders, strconv.Itoa(i+3))
 	}
-	args := append([]interface{}{target.ID, source.ID}, claimIDs...)
+
 	res, err := exec(ctx, tx,
-		fmt.Sprintf(`UPDATE attendees_to_slot_claims SET attendee_id = $1 WHERE attendee_id = $2 AND slot_claim_id IN (%s)`, strings.Join(idHolders, ",")),
-		args...)
+		`UPDATE attendees_to_slot_claims SET attendee_id = $1 WHERE attendee_id = $2 AND slot_claim_id = ANY($3)`,
+		target.ID, source.ID, pq.Int64Array(claimIDs))
 
 	if err != nil {
 		return nil, nil, fmt.Errorf("changing slot claims ownershio: %w", err)

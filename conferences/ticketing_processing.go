@@ -123,7 +123,7 @@ func coverCredit(ctx context.Context,
 func transferClaims(ctx context.Context,
 	source, target *Attendee, claims []SlotClaim) (*Attendee, *Attendee, error) {
 	var err error
-	sourceClaimsMap := map[uint64]bool{}
+	sourceClaimsMap := map[int64]bool{}
 	for _, claim := range source.Claims {
 		sourceClaimsMap[claim.ID] = true
 	}

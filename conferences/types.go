@@ -102,7 +102,7 @@ func (c *ClaimPayment) Fulfilled() bool {
 
 // SlotClaim represents one occupancy of one slot.
 type SlotClaim struct {
-	ID             uint64
+	ID             int64
 	ConferenceSlot *ConferenceSlot
 	// TicketID should only be valid when combined with the correct Attendee ID/Email
 	TicketID uuid.UUID

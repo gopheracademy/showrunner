@@ -5,4 +5,5 @@ go 1.15
 require (
 	encore.dev v0.0.6
 	github.com/gofrs/uuid v3.3.0+incompatible
+	github.com/lib/pq v1.8.0
 )
