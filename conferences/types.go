@@ -51,22 +51,22 @@ type ConferenceSlot struct {
 
 // Venue defines a venue that hosts a conference, such as DisneyWorld
 type Venue struct {
-	ID           uint32
-	Name         string
-	Description  string
-	Address      string
-	Directions   string
-	GoogleMapUrl string
-	Capacity     int
+	ID            uint32
+	Name          string
+	Description   string
+	Address       string
+	Directions    string
+	GoogleMapsURL string
+	Capacity      int
 }
 
 type Location struct {
-	ID           uint32
-	Name         string
-	Description  string
-	Address      string
-	Directions   string
-	GoogleMapUrl string
-	Capacity     int
-	VenueID      uint32
+	ID            uint32
+	Name          string
+	Description   string
+	Address       string
+	Directions    string
+	GoogleMapsURL string
+	Capacity      int
+	VenueID       uint32
 }

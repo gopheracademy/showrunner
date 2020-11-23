@@ -32,7 +32,7 @@ func GetAll(ctx context.Context, params *GetAllParams) (*GetAllResponse, error) 
 		 venue.description,
 		 venue.address,
 		 venue.directions,
-		 venue.google_map_url,
+		 venue.google_maps_url,
 		 venue.capacity 
 		 FROM event 
 		 LEFT JOIN conference ON conference.event_id = event.id LEFT JOIN venue ON conference.venue_id = venue.id
@@ -65,7 +65,7 @@ func GetAll(ctx context.Context, params *GetAllParams) (*GetAllResponse, error) 
 			&conference.Venue.Description,
 			&conference.Venue.Address,
 			&conference.Venue.Directions,
-			&conference.Venue.GoogleMapUrl,
+			&conference.Venue.GoogleMapsURL,
 			&conference.Venue.Capacity,
 		)
 		if err != nil {

@@ -37,7 +37,7 @@ func GetConferenceSlots(ctx context.Context, params *GetConferenceSlotsParams) (
 		 location.description,
 		 location.address,
 		 location.directions,
-		 location.google_map_url,
+		 location.google_maps_url,
 		 location.capacity,
 		 location.venue_id 
 		 FROM conference_slot  
@@ -71,7 +71,7 @@ func GetConferenceSlots(ctx context.Context, params *GetConferenceSlotsParams) (
 			&conferenceSlot.Location.Description,
 			&conferenceSlot.Location.Address,
 			&conferenceSlot.Location.Directions,
-			&conferenceSlot.Location.GoogleMapUrl,
+			&conferenceSlot.Location.GoogleMapsURL,
 			&conferenceSlot.Location.Capacity,
 			&conferenceSlot.Location.VenueID,
 		)
