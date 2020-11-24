@@ -14,63 +14,22 @@ type SQLStorage struct {
 	tx *sqldb.Tx
 }
 
-const (
-	ticketIDUniqueConstraint = "ticket_id_is_unique"
-	tableSlotClaims          = "slot_claim"
-)
-
-func query(ctx context.Context, tx *sqldb.Tx, statement string, args ...interface{}) (*sqldb.Rows, error) {
-	if tx != nil {
-		return sqldb.QueryTx(tx, ctx, statement, args...)
-	}
-	return sqldb.Query(ctx, statement, args...)
-}
-
-func queryRow(ctx context.Context, tx *sqldb.Tx, statement string, args ...interface{}) *sqldb.Row {
-	if tx != nil {
-		return sqldb.QueryRowTx(tx, ctx, statement, args...)
-	}
-	return sqldb.QueryRow(ctx, statement, args...)
-}
-
-func exec(ctx context.Context, tx *sqldb.Tx, statement string, args ...interface{}) (sql.Result, error) {
-	if tx != nil {
-		return sqldb.ExecTx(tx, ctx, statement, args...)
-	}
-	return sqldb.Exec(ctx, statement, args...)
-}
-
 // createAttendee creates a new attendee in the database and returns it.
 func createAttendee(ctx context.Context, tx *sqldb.Tx, a *Attendee) (*Attendee, error) {
 	result := Attendee{}
-	row := queryRow(ctx, tx,
-		"INSERT INTO attendee (email, coc_accepted) VALUES ($1, $2) RETURNING id, email, coc_accepted",
-		a.Email, a.CoCAccepted)
+	sqlStatement := "INSERT INTO attendee (email, coc_accepted) VALUES ($1, $2) RETURNING id, email, coc_accepted"
+	sqlArgs := []interface{}{a.Email, a.CoCAccepted}
+	var row *sqldb.Row
 
+	if tx != nil {
+		row = sqldb.QueryRowTx(tx, ctx, sqlStatement, sqlArgs...)
+	} else {
+		row = sqldb.QueryRow(ctx, sqlStatement, sqlArgs...)
+	}
 	if err := row.Scan(&result.ID, &result.Email, &result.CoCAccepted); err != nil {
 		return nil, fmt.Errorf("creating or fetching attendee: %w", err)
 	}
 
-	for _, c := range a.Claims {
-		res, err := exec(ctx, tx,
-			`INSERT INTO attendee_to_slot_claims (attendee_id, slot_claim_id) 
-			VALUES ($1, $2) 
-		ON CONFLICT ON CONSTRAINT slot_claim_id_is_unique DO UPDATE SET attendee_id = EXCLUDED.attendee_id`,
-			result.ID, c.ID)
-		if err != nil {
-			return nil, fmt.Errorf("inserting attendee claims: %w", err)
-		}
-
-		ra, err := res.RowsAffected()
-		if err != nil {
-			return nil, fmt.Errorf("inserting attendee claims: %w", err)
-		}
-		if ra == 0 {
-			return nil, fmt.Errorf("could not create claim")
-		}
-	}
-
-	result.Claims = a.Claims
 	return &result, nil
 }
 
@@ -92,21 +51,29 @@ func (s *SQLStorage) readAttendeeByID(ctx context.Context, tx *sqldb.Tx, id uint
 
 func readAttendee(ctx context.Context, tx *sqldb.Tx, email string, id uint64) (*Attendee, error) {
 	results := Attendee{}
-	q := `SELECT id, email, coc_accepted FROM attendee`
-	args := []interface{}{}
+	sqlStatement := `SELECT id, email, coc_accepted FROM attendee`
+	sqlArgs := []interface{}{}
 	if email != "" {
-		q = `SELECT id, email, coc_accepted FROM attendee WHERE email = $1`
-		args = append(args, email)
+		sqlStatement = `SELECT id, email, coc_accepted FROM attendee WHERE email = $1`
+		sqlArgs = append(sqlArgs, email)
 	}
 	if email != "" && id != 0 {
-		q = `SELECT id, email, coc_accepted FROM attendee WHERE email = $1 AND WHERE id = $2`
-		args = append(args, id)
+		sqlStatement = `SELECT id, email, coc_accepted FROM attendee WHERE email = $1 AND WHERE id = $2`
+		sqlArgs = append(sqlArgs, id)
 	}
 	if email == "" && id != 0 {
-		q = `SELECT id, email, coc_accepted FROM attendee WHERE id = $1`
-		args = append(args, id)
+		sqlStatement = `SELECT id, email, coc_accepted FROM attendee WHERE id = $1`
+		sqlArgs = append(sqlArgs, id)
 	}
-	row := queryRow(ctx, tx, q, args...)
+
+	var row *sqldb.Row
+
+	if tx != nil {
+		row = sqldb.QueryRowTx(tx, ctx, sqlStatement, sqlArgs...)
+	} else {
+		row = sqldb.QueryRow(ctx, sqlStatement, sqlArgs...)
+	}
+
 	err := row.Scan(&results.ID, &results.Email, &results.CoCAccepted)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -117,11 +84,17 @@ func readAttendee(ctx context.Context, tx *sqldb.Tx, email string, id uint64) (*
 
 	claims := []SlotClaim{}
 
-	rows, err := query(ctx, tx,
-		`SELECT id, ticket_id, redeemed FROM slot_claim 
+	sqlStatement = `SELECT id, ticket_id, redeemed FROM slot_claim 
 	JOIN attendees_to_slot_claims ON slot_claim.id = attendees_to_slot_claims.slot_claim_id
-	WHERE attendees_to_slot_claims.id = $1`,
-		results.ID)
+	WHERE attendees_to_slot_claims.id = $1`
+	sqlArgs = []interface{}{results.ID}
+	var rows *sqldb.Rows
+
+	if tx != nil {
+		rows, err = sqldb.QueryTx(tx, ctx, sqlStatement, sqlArgs...)
+	} else {
+		rows, err = sqldb.Query(ctx, sqlStatement, sqlArgs...)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("querying claims for attendee: %w", err)
 	}
@@ -140,10 +113,10 @@ func readAttendee(ctx context.Context, tx *sqldb.Tx, email string, id uint64) (*
 
 // createConferenceSlot saves a slot in the database.
 func createConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSlot, conferenceID int64) (*ConferenceSlot, error) {
-	var sqlSentence = `INSERT INTO conference_slot (conference_id, name, description, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public)
+	var sqlStatement = `INSERT INTO conference_slot (conference_id, name, description, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public)
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
 	RETURNING conference_id, name, description, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public`
-	var args = []interface{}{
+	var sqlArgs = []interface{}{
 		conferenceID,
 		cslot.Name,
 		cslot.Description,
@@ -155,13 +128,20 @@ func createConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSl
 		cslot.PurchaseableUntil,
 		cslot.AvailableToPublic,
 	}
-	/*if e.DependsOn != nil {
-		sqlSentence = `INSERT INTO conference_slot (conference_id, name, description, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public, depends_on_id)
+	if cslot.DependsOn != nil {
+		sqlStatement = `INSERT INTO conference_slot (conference_id, name, description, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public, depends_on_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id, name, description, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public`
-		args = append(args, e.DependsOn.ID)
-	}*/
-	row := queryRow(ctx, tx, sqlSentence, args...)
+		sqlArgs = append(sqlArgs, cslot.DependsOn.ID)
+	}
+	var row *sqldb.Row
+
+	if tx != nil {
+		row = sqldb.QueryRowTx(tx, ctx, sqlStatement, sqlArgs...)
+	} else {
+		row = sqldb.QueryRow(ctx, sqlStatement, sqlArgs...)
+	}
+
 	results := ConferenceSlot{}
 	err := row.Scan(&results.ID,
 		&results.Name,
@@ -184,12 +164,18 @@ func createConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSl
 
 func readConferenceSlotByID(ctx context.Context, tx *sqldb.Tx, id uint64, loadDeps bool) (*ConferenceSlot, error) {
 	results := ConferenceSlot{}
-	row := queryRow(ctx, tx,
-		`SELECT (id, name, description, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public, conference_id)
+	var row *sqldb.Row
+	sqlStatement := `SELECT (id, name, description, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public, depends_on)
 	FROM conference_slot 
-	WHERE id = $1`, id)
+	WHERE id = $1`
+	sqlArgs := []interface{}{id}
+	if tx != nil {
+		row = sqldb.QueryRowTx(tx, ctx, sqlStatement, sqlArgs...)
+	} else {
+		row = sqldb.QueryRow(ctx, sqlStatement, sqlArgs...)
+	}
 
-	var conferenceID uint64
+	var dependsOnID uint64
 
 	err := row.Scan(&results.ID,
 		&results.Name,
@@ -201,7 +187,7 @@ func readConferenceSlotByID(ctx context.Context, tx *sqldb.Tx, id uint64, loadDe
 		&results.PurchaseableFrom,
 		&results.PurchaseableUntil,
 		&results.AvailableToPublic,
-		&conferenceID)
+		&dependsOnID)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -209,30 +195,19 @@ func readConferenceSlotByID(ctx context.Context, tx *sqldb.Tx, id uint64, loadDe
 		return nil, fmt.Errorf("reading conference slots by id: %w", err)
 	}
 
-	/*
-			if dependsOnID != 0 && loadDeps {
-				results.DependsOn, err = readConferenceSlotByID(ctx, tx, dependsOnID, false)
-				if err != nil {
-					return nil, fmt.Errorf("loading dependency: %w", err)
-				}
-			}
-
-
-		conference := Conference{}
-		row = queryRow(ctx, tx,
-			`SELECT id, name, slug, start_date, end_date, location FROM conference WHERE id = $1`, conferenceID)
-		err = row.Scan(&conference.ID, &conference.Name, &conference.Slug, &conference.StartDate, &conference.EndDate, &conference.Location)
+	if dependsOnID != 0 && loadDeps {
+		results.DependsOn, err = readConferenceSlotByID(ctx, tx, dependsOnID, false)
 		if err != nil {
-			return nil, fmt.Errorf("reading conference by id: %w", err)
+			return nil, fmt.Errorf("loading dependency: %w", err)
 		}
+	}
 
-		results.Conference = &conference
-	*/
 	return &results, nil
 }
 
 // updateConferenceSlot updates conference slot fields from the passed instance
 func updateConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSlot, conferenceID int64) error {
+	// Regular update
 	var sqlStatement = `UPDATE conference_slot 
 	SET conference_id = $1, name = $2, description = $3, cost =$4, capacity=$5, 
 	start_date = $6, end_date = $7, purchaseable_form = $8, purchaseable_until = $9, 
@@ -250,17 +225,27 @@ func updateConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSl
 		cslot.PurchaseableUntil,
 		cslot.AvailableToPublic,
 	}
-	/* if e.DependsOn != nil {
+
+	// this slot depends on another
+	if cslot.DependsOn != nil {
 		sqlStatement = `UPDATE conference_slot
 	SET conference_id = $1, name = $2, description = $3, cost =$4, capacity=$5,
 	start_date = $6, end_date = $7, purchaseable_form = $8, purchaseable_until = $9,
 	available_to_public $10, depends_on_id = $11
 	WHERE id = $12`
-		args = append(args, e.DependsOn.ID)
-	} */
+		args = append(args, cslot.DependsOn.ID)
+	}
+
+	// the id is the last argument of the query, always
 	args = append(args, cslot.ID)
 
-	res, err := exec(ctx, tx, sqlStatement, args...)
+	var res sql.Result
+	var err error
+	if tx != nil {
+		res, err = sqldb.ExecTx(tx, ctx, sqlStatement, args...)
+	} else {
+		res, err = sqldb.Exec(ctx, sqlStatement, args...)
+	}
 
 	if err != nil {
 		return fmt.Errorf("updating conference slot: %w", err)
@@ -277,13 +262,20 @@ func updateConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSl
 }
 
 // createSlotClaim saves a slot claim and returns it with the populated ID
-func createSlotClaim(ctx context.Context, tx *sqldb.Tx, slotClaim *SlotClaim) (*SlotClaim, error) {
+func createSlotClaim(ctx context.Context, tx *sqldb.Tx, slotClaim *SlotClaim, attendeeID int64) (*SlotClaim, error) {
 	var err error
 
-	row := queryRow(ctx, tx,
-		`INSERT INTO slot_claim (ticket_id, redeemed, conference_slot_id) VALUES ($1, $2, $3)
-		RETURNING id, ticket_id, redeemed`,
-		slotClaim.TicketID, slotClaim.Redeemed, slotClaim.ConferenceSlot.ID)
+	sqlStatement := `INSERT INTO slot_claim (ticket_id, redeemed, conference_slot_id, attendee_id) VALUES ($1, $2, $3, $4)
+		RETURNING id, ticket_id, redeemed`
+	sqlArgs := []interface{}{slotClaim.TicketID, slotClaim.Redeemed, slotClaim.ConferenceSlot.ID, attendeeID}
+
+	var row *sqldb.Row
+
+	if tx != nil {
+		row = sqldb.QueryRowTx(tx, ctx, sqlStatement, sqlArgs...)
+	} else {
+		row = sqldb.QueryRow(ctx, sqlStatement, sqlArgs...)
+	}
 
 	results := SlotClaim{}
 	err = row.Scan(&results.ID, &results.TicketID, &results.Redeemed)
@@ -296,18 +288,17 @@ func createSlotClaim(ctx context.Context, tx *sqldb.Tx, slotClaim *SlotClaim) (*
 	return &results, nil
 }
 
-const (
-	tableAttendee               = "attendee"
-	tableAttendeeSlotClaims     = "attendee_to_slot_claims"
-	slotClaimIDUniqueConstraint = "slot_claim_id_is_unique"
-)
-
 // updateAttendee saves the passed attendee attributes on top of the existing one.
 func updateAttendee(ctx context.Context, tx *sqldb.Tx, attendee *Attendee) (*Attendee, error) {
-	res, err := exec(ctx, tx,
-		`UPDATE attendee SET email = $1, coc_accepted = $2 WHERE id = $3`,
-		attendee.Email, attendee.CoCAccepted, attendee.ID)
-
+	sqlStatement := `UPDATE attendee SET email = $1, coc_accepted = $2 WHERE id = $3`
+	sqlArgs := []interface{}{attendee.Email, attendee.CoCAccepted, attendee.ID}
+	var res sql.Result
+	var err error
+	if tx != nil {
+		res, err = sqldb.ExecTx(tx, ctx, sqlStatement, sqlArgs...)
+	} else {
+		res, err = sqldb.Exec(ctx, sqlStatement, sqlArgs...)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("updating attendee: %w", err)
 	}
@@ -320,23 +311,31 @@ func updateAttendee(ctx context.Context, tx *sqldb.Tx, attendee *Attendee) (*Att
 		return nil, fmt.Errorf("attendee was not updated")
 	}
 
-	for _, c := range attendee.Claims {
+	claimIDs := make(pq.Int64Array, len(attendee.Claims))
+	for i, c := range attendee.Claims {
+		claimIDs[i] = c.ID
+	}
 
-		res, err = exec(ctx, tx,
-			`INSERT INTO attendee_to_slot_claims (attendee_id, slot_claim_id) 
-			VALUES ($1, $2) 
-		ON CONFLICT ON CONSTRAINT slot_claim_id_is_unique DO UPDATE SET attendee_id = $3`,
-			attendee.ID, c.ID, attendee.ID)
-		if err != nil {
-			return nil, fmt.Errorf("inserting attendee claims: %w", err)
-		}
-		ra, err := res.RowsAffected()
-		if err != nil {
-			return nil, fmt.Errorf("failed to find rows affected by update: %w", err)
-		}
-		if ra == 0 {
-			return nil, fmt.Errorf("no such attedee")
-		}
+	sqlStatement = `UPDATE slot_claim SET
+	attendee_id = $1
+	WHERE id = ANY($2)
+	`
+	sqlArgs = []interface{}{attendee.ID, claimIDs}
+
+	if tx != nil {
+		res, err = sqldb.ExecTx(tx, ctx, sqlStatement, sqlArgs...)
+	} else {
+		res, err = sqldb.Exec(ctx, sqlStatement, sqlArgs...)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("inserting attendee claims: %w", err)
+	}
+	ra, err = res.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("failed to find rows affected by update: %w", err)
+	}
+	if ra == 0 {
+		return nil, fmt.Errorf("no such attedee")
 	}
 
 	return attendee, nil
@@ -354,23 +353,36 @@ const (
 
 func insertMoneyPayment(ctx context.Context, tx *sqldb.Tx, claimPaymentID uint64, payment *PaymentMethodMoney) (*PaymentMethodMoney, error) {
 	if payment.ID != 0 { // SERIAL starts in 1
-		return payment, nil
+		return nil, fmt.Errorf("this money payment has already been inserted")
 	}
 	money := PaymentMethodMoney{}
 
-	row := queryRow(ctx, tx,
-		`INSERT INTO payment_method_money (amount, ref) VALUES ($1, $2)
-		RETURNING id, amount, ref`,
-		payment.Amount, payment.PaymentRef)
+	sqlStatement := `INSERT INTO payment_method_money (amount, ref) VALUES ($1, $2)
+		RETURNING id, amount, ref`
+	sqlArgs := []interface{}{payment.Amount, payment.PaymentRef}
+
+	var row *sqldb.Row
+
+	if tx != nil {
+		row = sqldb.QueryRowTx(tx, ctx, sqlStatement, sqlArgs...)
+	} else {
+		row = sqldb.QueryRow(ctx, sqlStatement, sqlArgs...)
+	}
 	err := row.Scan(&money.ID, &money.Amount, &money.PaymentRef)
 	if err != nil {
 		return nil, fmt.Errorf("inserting money payment: %w", err)
 	}
 
-	res, err := exec(ctx, tx,
-		`INSERT INTO payment_method_money_to_claim_payment (payment_method_money_id, claim_payment_id) VALUES ($1, $2)`,
-		money.ID, claimPaymentID)
+	sqlStatement = `INSERT INTO payment_method_money_to_claim_payment (payment_method_money_id, claim_payment_id) VALUES ($1, $2)`
+	sqlArgs = []interface{}{money.ID, claimPaymentID}
 
+	var res sql.Result
+
+	if tx != nil {
+		res, err = sqldb.ExecTx(tx, ctx, sqlStatement, sqlArgs...)
+	} else {
+		res, err = sqldb.Exec(ctx, sqlStatement, sqlArgs...)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("relating financial instrument money to payment: %w", err)
 	}
@@ -386,23 +398,34 @@ func insertMoneyPayment(ctx context.Context, tx *sqldb.Tx, claimPaymentID uint64
 
 func insertDiscountPayment(ctx context.Context, tx *sqldb.Tx, claimPaymentID uint64, payment *PaymentMethodConferenceDiscount) (*PaymentMethodConferenceDiscount, error) {
 	if payment.ID != 0 { // SERIAL starts in 1
-		return payment, nil
+		return nil, fmt.Errorf("this discount has already been inserted")
 	}
 	discount := PaymentMethodConferenceDiscount{}
 
-	row := queryRow(ctx, tx,
-		`INSERT INTO payment_method_conference_slotdiscount (amount, detail) VALUES ($1, $2)
-		RETURNING id, amount, detail`,
-		payment.Amount, payment.Detail)
+	sqlStatement := `INSERT INTO payment_method_conference_slotdiscount (amount, detail) VALUES ($1, $2)
+		RETURNING id, amount, detail`
+	sqlArgs := []interface{}{payment.Amount, payment.Detail}
+	var row *sqldb.Row
+
+	if tx != nil {
+		row = sqldb.QueryRowTx(tx, ctx, sqlStatement, sqlArgs...)
+	} else {
+		row = sqldb.QueryRow(ctx, sqlStatement, sqlArgs...)
+	}
 	err := row.Scan(&discount.ID, &discount.Amount, &discount.Detail)
 	if err != nil {
 		return nil, fmt.Errorf("inserting discount payment: %w", err)
 	}
 
-	res, err := exec(ctx, tx,
-		`INSERT INTO payment_method_conference_slotdiscount_to_claim_payment (payment_method_conference_slotdiscount_id, claim_payment_id) VALUES ($1, $2)`,
-		discount.ID, claimPaymentID)
+	sqlStatement = `INSERT INTO payment_method_conference_slotdiscount_to_claim_payment (payment_method_conference_slotdiscount_id, claim_payment_id) VALUES ($1, $2)`
+	sqlArgs = []interface{}{discount.ID, claimPaymentID}
+	var res sql.Result
 
+	if tx != nil {
+		res, err = sqldb.ExecTx(tx, ctx, sqlStatement, sqlArgs...)
+	} else {
+		res, err = sqldb.Exec(ctx, sqlStatement, sqlArgs...)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("relating financial instrument discount to payment: %w", err)
 	}
@@ -419,23 +442,34 @@ func insertDiscountPayment(ctx context.Context, tx *sqldb.Tx, claimPaymentID uin
 
 func insertCreditPayment(ctx context.Context, tx *sqldb.Tx, claimPaymentID uint64, payment *PaymentMethodCreditNote) (*PaymentMethodCreditNote, error) {
 	if payment.ID != 0 { // SERIAL starts in 1
-		return payment, nil
+		return nil, fmt.Errorf("this credit note has already been inserted")
 	}
 	credit := PaymentMethodCreditNote{}
 
-	row := queryRow(ctx, tx,
-		`INSERT INTO payment_method_credit_note (amount, detail) VALUES ($1, $2)
-		RETURNING id, amount, detail`,
-		payment.Amount, payment.Detail)
+	sqlStatement := `INSERT INTO payment_method_credit_note (amount, detail) VALUES ($1, $2)
+		RETURNING id, amount, detail`
+	sqlArgs := []interface{}{payment.Amount, payment.Detail}
+	var row *sqldb.Row
+
+	if tx != nil {
+		row = sqldb.QueryRowTx(tx, ctx, sqlStatement, sqlArgs...)
+	} else {
+		row = sqldb.QueryRow(ctx, sqlStatement, sqlArgs...)
+	}
 	err := row.Scan(&credit.ID, &credit.Amount, &credit.Detail)
 	if err != nil {
 		return nil, fmt.Errorf("inserting money payment: %w", err)
 	}
 
-	res, err := exec(ctx, tx,
-		`INSERT INTO payment_method_conference_slotdiscount_to_claim_payment (payment_method_credit_note_to_claim_payment, claim_payment_id) VALUES ($1, $2)`,
-		credit.ID, claimPaymentID)
+	sqlStatement = `INSERT INTO payment_method_conference_slotdiscount_to_claim_payment (payment_method_credit_note_to_claim_payment, claim_payment_id) VALUES ($1, $2)`
+	sqlArgs = []interface{}{credit.ID, claimPaymentID}
+	var res sql.Result
 
+	if tx != nil {
+		res, err = sqldb.ExecTx(tx, ctx, sqlStatement, sqlArgs...)
+	} else {
+		res, err = sqldb.Exec(ctx, sqlStatement, sqlArgs...)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("relating financial instrument credit to payment: %w", err)
 	}
@@ -452,9 +486,17 @@ func insertCreditPayment(ctx context.Context, tx *sqldb.Tx, claimPaymentID uint6
 
 func createClaimPayment(ctx context.Context, tx *sqldb.Tx, c *ClaimPayment) (*ClaimPayment, error) {
 	claimPayments := ClaimPayment{}
-	row := queryRow(ctx, tx,
-		`INSERT INTO claim_payment (invoice) VALUES ($1)
-	RETURNING id, invoice`, c.Invoice)
+	sqlStatement := `INSERT INTO claim_payment (invoice) VALUES ($1)
+	RETURNING id, invoice`
+	sqlArgs := []interface{}{c.Invoice}
+
+	var row *sqldb.Row
+
+	if tx != nil {
+		row = sqldb.QueryRowTx(tx, ctx, sqlStatement, sqlArgs...)
+	} else {
+		row = sqldb.QueryRow(ctx, sqlStatement, sqlArgs...)
+	}
 	err := row.Scan(&claimPayments.ID, &claimPayments.Invoice)
 	if err != nil {
 		return nil, fmt.Errorf("inserting payment for claims: %w", err)
@@ -490,9 +532,18 @@ func createClaimPayment(ctx context.Context, tx *sqldb.Tx, c *ClaimPayment) (*Cl
 
 // updateClaimPayment saves the invoice and payments of this claim payment assuming it exists
 func updateClaimPayment(ctx context.Context, tx *sqldb.Tx, c *ClaimPayment) (*ClaimPayment, error) {
-	res, err := exec(ctx, tx,
-		`UPDATE claim_payment SET invoice = $1
-	WHERE id = $2`, c.Invoice)
+	sqlStatement := `UPDATE claim_payment SET invoice = $1
+	WHERE id = $2`
+	sqlArgs := []interface{}{c.Invoice}
+
+	var res sql.Result
+	var err error
+
+	if tx != nil {
+		res, err = sqldb.ExecTx(tx, ctx, sqlStatement, sqlArgs...)
+	} else {
+		res, err = sqldb.Exec(ctx, sqlStatement, sqlArgs...)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("updating payment for claims: %w", err)
 	}
@@ -563,10 +614,17 @@ func changeSlotClaimOwner(ctx context.Context, tx *sqldb.Tx, slots []SlotClaim, 
 		claimIDsIndex[slot.ID] = true
 	}
 
-	res, err := exec(ctx, tx,
-		`UPDATE attendees_to_slot_claims SET attendee_id = $1 WHERE attendee_id = $2 AND slot_claim_id = ANY($3)`,
-		target.ID, source.ID, pq.Int64Array(claimIDs))
+	sqlStatement := `UPDATE attendees_to_slot_claims SET attendee_id = $1 WHERE attendee_id = $2 AND slot_claim_id = ANY($3)`
+	sqlArgs := []interface{}{target.ID, source.ID, pq.Int64Array(claimIDs)}
 
+	var res sql.Result
+	var err error
+
+	if tx != nil {
+		res, err = sqldb.ExecTx(tx, ctx, sqlStatement, sqlArgs...)
+	} else {
+		res, err = sqldb.Exec(ctx, sqlStatement, sqlArgs...)
+	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("changing slot claims ownership: %w", err)
 	}

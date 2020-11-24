@@ -25,7 +25,7 @@ func claimSlots(ctx context.Context, attendee *Attendee, slots []ConferenceSlot)
 			ConferenceSlot: &slot,
 			TicketID:       ticketID,
 		}
-		sc, err = createSlotClaim(ctx, tx, sc)
+		sc, err = createSlotClaim(ctx, tx, sc, attendee.ID)
 		if err != nil {
 			if atomicErr := sqldb.Rollback(tx); atomicErr != nil {
 				err = fmt.Errorf("%w (also rolling back transaction: %v)", err, atomicErr)
@@ -92,8 +92,7 @@ func (e *ErrInvalidCurrency) Error() string {
 func coverCredit(ctx context.Context,
 	existingPayment *ClaimPayment,
 	payments []FinancialInstrument) error {
-	for i := range payments {
-		payment := payments[i]
+	for _, payment := range payments {
 		if payment.Type() == ATReceivable {
 			return &ErrInvalidCurrency{currencyType: payment.Type()}
 		}
