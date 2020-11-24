@@ -71,3 +71,37 @@ type Location struct {
 	Capacity      int
 	VenueID       uint32
 }
+
+// Sponsor defines a conference sponsor, such as Google
+type Sponsor struct {
+	ID               uint32
+	Name             string
+	Address          string
+	Website          string
+	SponsorshipLevel string
+	Contacts         []SponsorContactInformation
+}
+
+type ContactRole int
+
+const (
+	ContactRoleMarketing ContactRole = iota
+	ContactRoleLogistics
+	ContactRoleTechnical
+	ContactRoleOther
+	ContactRoleSoleContact
+)
+
+func (c ContactRole) String() string {
+	return []string{"marketing", "logistics", "technical", "other", "sole_contact"}[c]
+}
+
+// SponsorContactInformation defines a contact
+//and their information for a sponsor
+type SponsorContactInformation struct {
+	ID    uint32
+	Name  string
+	Role  ContactRole
+	Email string
+	Phone string
+}

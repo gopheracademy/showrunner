@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE TYPE sponsorship_level AS ENUM ('platnium', 'gold', 'silver', 'bronze');
+CREATE TYPE sponsorship_level AS ENUM ('platinum', 'gold', 'silver', 'bronze');
 
 CREATE TABLE sponsor(
   id SERIAL PRIMARY KEY,
@@ -10,7 +10,7 @@ CREATE TABLE sponsor(
   sponsorship_level sponsorship_level NOT NULL
 );
 
-CREATE TYPE role AS ENUM ('marketing', 'logistics', 'technical', 'other', 'sole contact');
+CREATE TYPE role AS ENUM ('marketing', 'logistics', 'technical', 'other', 'sole_contact');
 
 CREATE TABLE sponsor_contact_information(
   id SERIAL PRIMARY KEY,
@@ -19,7 +19,7 @@ CREATE TABLE sponsor_contact_information(
   email TEXT NULL,
   phone TEXT NULL,
   sponsor_id SERIAL NOT NULL REFERENCES sponsor(id)
-  );
+);
 
 INSERT INTO sponsor (
   name, 
@@ -30,7 +30,7 @@ INSERT INTO sponsor (
   'Google', 
   'Google Plaza, Google Town, G00 G13', 
   'https://www.google.com', 
-  'platnium'
+  'platinum'
 );
 
 INSERT INTO sponsor (
