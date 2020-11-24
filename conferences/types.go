@@ -19,7 +19,7 @@ type Conference struct {
 	Slug      string
 	StartDate time.Time
 	EndDate   time.Time
-	Location  string
+	Venue     Venue
 	Slots     []ConferenceSlot
 }
 
@@ -46,4 +46,28 @@ type ConferenceSlot struct {
 	// AvailableToPublic indicates is this is something that will appear on the tickets purchase page (ie, we can
 	// issue sponsor tickets and those cannot be bought individually)
 	AvailableToPublic bool
+	Location          Location
+}
+
+// Venue defines a venue that hosts a conference, such as DisneyWorld
+type Venue struct {
+	ID            uint32
+	Name          string
+	Description   string
+	Address       string
+	Directions    string
+	GoogleMapsURL string
+	Capacity      int
+}
+
+// Location defines a location for a venue, such as a room or event space
+type Location struct {
+	ID            uint32
+	Name          string
+	Description   string
+	Address       string
+	Directions    string
+	GoogleMapsURL string
+	Capacity      int
+	VenueID       uint32
 }

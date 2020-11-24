@@ -21,7 +21,21 @@ type GetAllResponse struct {
 func GetAll(ctx context.Context, params *GetAllParams) (*GetAllResponse, error) {
 
 	rows, err := sqldb.Query(ctx,
-		`SELECT event.*, conference.id, conference.name, conference.slug, conference.start_date, conference.end_date, conference.location FROM event LEFT JOIN conference ON conference.event_id = event.id
+		`SELECT event.*,
+		 conference.id,
+		 conference.name,
+		 conference.slug,
+		 conference.start_date,
+		 conference.end_date,
+		 venue.id,
+		 venue.name,
+		 venue.description,
+		 venue.address,
+		 venue.directions,
+		 venue.google_maps_url,
+		 venue.capacity 
+		 FROM event 
+		 LEFT JOIN conference ON conference.event_id = event.id LEFT JOIN venue ON conference.venue_id = venue.id
 		`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve all conferences: %w", err)
@@ -37,7 +51,23 @@ func GetAll(ctx context.Context, params *GetAllParams) (*GetAllResponse, error) 
 
 		conference.Slots = []ConferenceSlot{}
 
-		err := rows.Scan(&event.ID, &event.Name, &event.Slug, &conference.ID, &conference.Name, &conference.Slug, &conference.StartDate, &conference.EndDate, &conference.Location)
+		err := rows.Scan(
+			&event.ID,
+			&event.Name,
+			&event.Slug,
+			&conference.ID,
+			&conference.Name,
+			&conference.Slug,
+			&conference.StartDate,
+			&conference.EndDate,
+			&conference.Venue.ID,
+			&conference.Venue.Name,
+			&conference.Venue.Description,
+			&conference.Venue.Address,
+			&conference.Venue.Directions,
+			&conference.Venue.GoogleMapsURL,
+			&conference.Venue.Capacity,
+		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan rows: %w", err)
 		}
