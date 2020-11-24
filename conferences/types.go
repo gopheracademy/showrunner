@@ -9,6 +9,7 @@ type Event struct {
 	ID          uint32
 	Name        string
 	Slug        string
+	Published   bool
 	Conferences []Conference
 }
 
@@ -20,6 +21,7 @@ type Conference struct {
 	StartDate time.Time
 	EndDate   time.Time
 	Venue     Venue
+	Published bool
 	Slots     []ConferenceSlot
 }
 
@@ -46,6 +48,7 @@ type ConferenceSlot struct {
 	// AvailableToPublic indicates is this is something that will appear on the tickets purchase page (ie, we can
 	// issue sponsor tickets and those cannot be bought individually)
 	AvailableToPublic bool
+	Published         bool
 	Location          Location
 }
 
