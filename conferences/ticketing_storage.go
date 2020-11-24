@@ -568,7 +568,7 @@ func changeSlotClaimOwner(ctx context.Context, tx *sqldb.Tx, slots []SlotClaim, 
 		target.ID, source.ID, pq.Int64Array(claimIDs))
 
 	if err != nil {
-		return nil, nil, fmt.Errorf("changing slot claims ownershio: %w", err)
+		return nil, nil, fmt.Errorf("changing slot claims ownership: %w", err)
 	}
 	affected, err := res.RowsAffected()
 	if err != nil {
