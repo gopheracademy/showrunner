@@ -2,6 +2,9 @@ package conferences
 
 import "time"
 
+var _ Contentable = (*Site)(nil)
+var _ Component = (*HeroComponent)(nil)
+
 // Site is the parent type of all content
 type Site struct {
 	ID         uint32
@@ -27,7 +30,10 @@ func (s Site) TypeName() string {
 // that may be added to the Site to satisfy
 // the Contentable interface
 func (s Site) ValidComponents() []Component {
-	return []Component{}
+	return []Component{
+		HeroComponent{},
+		HeadlineComponent{},
+	}
 }
 
 // PrimaryDomain returns the preferred domain
@@ -98,7 +104,7 @@ const (
 )
 
 func (f Format) String() string {
-	return [...]string{"Large", "Medium", "Small", "Thumbnail"}[f]
+	return []string{"Large", "Medium", "Small", "Thumbnail"}[f]
 }
 
 // Contentable represents a type that may
@@ -109,36 +115,4 @@ type Contentable interface {
 	TypeName() string
 	// List of valid components for this type
 	ValidComponents() []Component
-}
-
-// Component is a structured content piece for
-// a web page
-type Component interface {
-	ComponentName() string
-	ValidFor(Contentable) bool
-}
-
-// HeroComponent is a component content type
-type HeroComponent struct {
-	ID       uint32
-	Headline string
-	Image    Image
-	Body     string
-}
-
-// ComponentName returns the name of the Component
-// to satisfy the Component interface
-func (h HeroComponent) ComponentName() string {
-	return "HeroComponent"
-}
-
-// ValidFor returns true when the component can be applied
-// to a Contentable type, otherwise false
-func (h HeroComponent) ValidFor(c Contentable) bool {
-	for _, component := range c.ValidComponents() {
-		if component.ComponentName() == h.ComponentName() {
-			return true
-		}
-	}
-	return false
 }
