@@ -72,18 +72,35 @@ type Location struct {
 	VenueID       uint32
 }
 
+// SponsorshipLevel defines the type that encapsulates the different sponsorship levels
+type SponsorshipLevel int
+
+// These are the valid sponsorship levels
+const (
+	SponsorshipLevelPlatinum SponsorshipLevel = iota
+	SponsorshipLevelGold
+	SponsorshipLevelSilver
+	SponsorshipLevelBronze
+)
+
+func (s SponsorshipLevel) String() string {
+	return []string{"platinum", "gold", "silver", "bronze"}[s]
+}
+
 // Sponsor defines a conference sponsor, such as Google
 type Sponsor struct {
 	ID               uint32
 	Name             string
 	Address          string
 	Website          string
-	SponsorshipLevel string
+	SponsorshipLevel SponsorshipLevel
 	Contacts         []SponsorContactInformation
 }
 
+// ContactRole defines the type that encapsulates the different contact roles
 type ContactRole int
 
+// These are the valid contact roles
 const (
 	ContactRoleMarketing ContactRole = iota
 	ContactRoleLogistics
