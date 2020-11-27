@@ -109,8 +109,10 @@ const (
 	ContactRoleSoleContact
 )
 
+var contactRoleMappings = []string{"marketing", "logistics", "technical", "other", "sole_contact"}
+
 func (c ContactRole) String() string {
-	return []string{"marketing", "logistics", "technical", "other", "sole_contact"}[c]
+	return contactRoleMappings[c]
 }
 
 // SponsorContactInformation defines a contact

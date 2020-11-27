@@ -20,13 +20,21 @@ type UpdateSponsorContactResponse struct {
 // encore:api public
 func UpdateSponsorContact(ctx context.Context, params *UpdateSponsorContactParams) (*UpdateSponsorContactResponse, error) {
 
+	if params.SponsorContactInformation == nil {
+		return nil, fmt.Errorf("SponsorContactInformation is required")
+	}
+
+	if int(params.SponsorContactInformation.Role) > len(contactRoleMappings)-1 || params.SponsorContactInformation.Role < 0 {
+		return nil, fmt.Errorf("invalid role provided")
+	}
+
 	result, err := sqldb.Exec(ctx, `
 	UPDATE sponsor_contact_information
 	SET name = $1,
 		role = $2,
 		email = $3,
 		phone = $4
-	WHERE id = $5`, params.SponsorContactInformation.Name, params.SponsorContactInformation.Role, params.SponsorContactInformation.Email, params.SponsorContactInformation.Phone, params.SponsorContactInformation.ID)
+	WHERE id = $5`, params.SponsorContactInformation.Name, params.SponsorContactInformation.Role.String(), params.SponsorContactInformation.Email, params.SponsorContactInformation.Phone, params.SponsorContactInformation.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update sponsor contact information: %w", err)
 	}
@@ -41,5 +49,4 @@ func UpdateSponsorContact(ctx context.Context, params *UpdateSponsorContactParam
 	}
 
 	return &UpdateSponsorContactResponse{}, nil
-
 }
