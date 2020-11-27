@@ -77,7 +77,7 @@ INSERT INTO sponsor_contact_information (
   sponsor_id
 ) VALUES (
   'Gary Gopher', 
-  'sole contact', 
+  'sole_contact', 
   'gary@gopher.com', 
   '600613',
   1
@@ -109,6 +109,20 @@ INSERT INTO sponsor_contact_information (
   'larry@1password.com', 
   '888888888',
   2
+);
+
+INSERT INTO sponsor_contact_information (
+  name, 
+  role, 
+  email, 
+  phone, 
+  sponsor_id
+) VALUES (
+  'Sinn Qulack', 
+  'technical', 
+  'sinn@sourcegraph.com', 
+  '666666',
+  3
 );
 
 
