@@ -15,11 +15,12 @@ func claimSlots(ctx context.Context, attendee *Attendee, slots []ConferenceSlot)
 		return nil, fmt.Errorf("failed to start transaction: %w", err)
 	}
 	var claims = make([]SlotClaim, len(slots))
-	ticketID, err := uuid.DefaultGenerator.NewV4()
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate an uuid for the ticket id: %w", err)
-	}
+
 	for i := range slots {
+		ticketID, err := uuid.DefaultGenerator.NewV4()
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate an uuid for the ticket id: %w", err)
+		}
 		slot := slots[i]
 		sc := &SlotClaim{
 			ConferenceSlot: &slot,

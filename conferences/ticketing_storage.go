@@ -9,11 +9,6 @@ import (
 	"github.com/lib/pq"
 )
 
-// SQLStorage provides a Postgres Flavored storage backend to store ticketing information.
-type SQLStorage struct {
-	tx *sqldb.Tx
-}
-
 // createAttendee creates a new attendee in the database and returns it.
 func createAttendee(ctx context.Context, tx *sqldb.Tx, a *Attendee) (*Attendee, error) {
 	result := Attendee{}
@@ -42,7 +37,7 @@ func readAttendeeByEmail(ctx context.Context, tx *sqldb.Tx, email string) (*Atte
 }
 
 // readAttendeeByID returns an attendee for the given ID if one exists.
-func (s *SQLStorage) readAttendeeByID(ctx context.Context, tx *sqldb.Tx, id int64) (*Attendee, error) {
+func readAttendeeByID(ctx context.Context, tx *sqldb.Tx, id int64) (*Attendee, error) {
 	if id == 0 {
 		return nil, fmt.Errorf("id is not valid")
 	}
@@ -101,7 +96,7 @@ func readAttendee(ctx context.Context, tx *sqldb.Tx, email string, id int64) (*A
 		claim := SlotClaim{}
 		err := rows.Scan(&claim.ID, &claim.TicketID, &claim.Redeemed)
 		if err != nil {
-			return nil, fmt.Errorf("scanning slot_claims for attendee: %w", err)
+			return nil, fmt.Errorf("scanning slot_claim for attendee: %w", err)
 		}
 		claims = append(claims, claim)
 	}
@@ -615,7 +610,7 @@ func changeSlotClaimOwner(ctx context.Context, tx *sqldb.Tx, slots []SlotClaim, 
 		claimIDsIndex[slot.ID] = true
 	}
 
-	sqlStatement := `UPDATE slot_claims SET attendee_id = $1 WHERE attendee_id = $2 AND id = ANY($3)`
+	sqlStatement := `UPDATE slot_claim SET attendee_id = $1 WHERE attendee_id = $2 AND id = ANY($3)`
 	sqlArgs := []interface{}{target.ID, source.ID, pq.Int64Array(claimIDs)}
 
 	var res sql.Result

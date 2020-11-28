@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"encore.dev/storage/sqldb"
+	"github.com/gofrs/uuid"
 )
 
 func Test_claimSlots(t *testing.T) {
@@ -360,5 +361,85 @@ func Test_coverCredit(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("covering payment: %v", err)
+	}
+}
+
+func Test_transferClaims(t *testing.T) {
+	att01 := &Attendee{
+		Email:       "testmail01@gophercon.com",
+		CoCAccepted: true,
+	}
+	savedAttendee01, err := createAttendee(context.TODO(), nil, att01)
+	if err != nil {
+		t.Fatalf("creating attendee: %v", err)
+	}
+
+	att02 := &Attendee{
+		Email:       "testmail02@gophercon.com",
+		CoCAccepted: true,
+	}
+	savedAttendee02, err := createAttendee(context.TODO(), nil, att02)
+	if err != nil {
+		t.Fatalf("creating attendee: %v", err)
+	}
+
+	// There is an entry for general admision to gophercon 2021 preloaded in the first migration
+	cslot, err := readConferenceSlotByID(context.TODO(), nil, 1, false)
+	if err != nil {
+		t.Fatalf("retrieving conference slot: %v", err)
+	}
+	// test01 setup
+	claims01, err := claimSlots(context.TODO(), savedAttendee01, []ConferenceSlot{*cslot, *cslot})
+	if err != nil {
+		t.Fatalf("claiming conference slot 1 of: %v", err)
+	}
+
+	tAtt01, tAtt02, err := transferClaims(context.TODO(), savedAttendee01, savedAttendee02, claims01[1:])
+	if err != nil {
+		t.Fatalf("claiming conference slot 1 of: %v", err)
+	}
+	if len(tAtt01.Claims) != 1 {
+		t.Fatalf("expected attendee 01 to have only one claim remaining, has:%d", len(tAtt01.Claims))
+	}
+	if len(tAtt02.Claims) != 1 {
+		t.Fatalf("expected attendee 03 to have at least one claim, has: %d", len(tAtt02.Claims))
+	}
+	if tAtt01.Claims[0].ID != claims01[0].ID {
+		t.Fatalf("attendee 1 remaining claim ID is not as expected, got: %d wanted %d", tAtt01.Claims[0].ID, claims01[0].ID)
+	}
+	if tAtt02.Claims[0].ID != claims01[1].ID {
+		t.Fatalf("attendee 2 remaining claim ID is not as expected, got: %d wanted %d", tAtt02.Claims[0].ID, claims01[1].ID)
+	}
+
+	rows, err := sqldb.Query(context.TODO(), "SELECT id, ticket_id, attendee_id FROM slot_claim WHERE attendee_id = $1 OR attendee_id = $2 ORDER BY id DESC", savedAttendee01.ID, savedAttendee02.ID)
+	if err != nil {
+		t.Fatalf("retrieving stored claims %v", err)
+	}
+
+	defer rows.Close()
+	dbCheckedClaims := 0
+	for rows.Next() {
+		var id int64
+		var ticketID uuid.UUID
+		var attendeeID int64
+		err := rows.Scan(&id, &ticketID, &attendeeID)
+		if err != nil {
+			t.Fatalf("reading one claim %v", err)
+		}
+		dbCheckedClaims++
+		if attendeeID == tAtt01.ID {
+			if tAtt01.Claims[0].ID != id {
+				t.Fatalf("attendee 1 saved remaining claim ID is not as expected, got: %d wanted %d", tAtt01.Claims[0].ID, id)
+			}
+			continue
+		}
+		if attendeeID == tAtt02.ID {
+			if tAtt02.Claims[0].ID != id {
+				t.Fatalf("attendee 2 saved remaining claim ID is not as expected, got: %d wanted %d", tAtt02.Claims[0].ID, id)
+			}
+		}
+	}
+	if dbCheckedClaims != 2 {
+		t.Fatalf("checked %d claims but expected 2", dbCheckedClaims)
 	}
 }
