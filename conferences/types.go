@@ -92,10 +92,18 @@ func (c *ClaimPayment) TotalDue() int64 {
 	return int64(totalDue)
 }
 
-// Fulfilled returns true if the payment of this invoice has been fulfilled
+// Fulfilled returns true if the payment of this invoice has been covered with either
+// money or credit
 func (c *ClaimPayment) Fulfilled() bool {
 	totalDue := c.TotalDue()
 	f, _ := paymentBalanced(totalDue, c.Payment...)
+	return f
+}
+
+// Paid returns true if the payment of this invoice has been fully paid.
+func (c *ClaimPayment) Paid() bool {
+	totalDue := c.TotalDue()
+	f, _ := paymentFulfilled(totalDue, c.Payment...)
 	b, _ := debtBalanced(c.Payment...)
 	return f && b
 }
@@ -215,6 +223,19 @@ func paymentBalanced(amount int64, payments ...FinancialInstrument) (bool, int64
 		}
 	}
 	missing := amount - received - receivables
+	return missing <= 0, missing
+}
+
+// paymentFulfilled returns true if the passed amount is covered in full.
+func paymentFulfilled(amount int64, payments ...FinancialInstrument) (bool, int64) {
+	var received int64 = 0
+	for _, p := range payments {
+		switch p.Type() {
+		case ATCash, ATDiscount:
+			received += p.Total()
+		}
+	}
+	missing := amount - received
 	return missing <= 0, missing
 }
 

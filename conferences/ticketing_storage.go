@@ -336,8 +336,8 @@ const (
 	tableClaimPayment                = "claim_payment"
 	tableFinancialInstrumentMoney    = "payment_method_money"
 	tableMoneyToPayment              = "payment_method_money_to_claim_payment"
-	tableFinancialInstrumentDiscount = "payment_method_conference_slotdiscount"
-	tableDiscountToPayment           = "payment_method_conference_slotdiscount_to_claim_payment"
+	tableFinancialInstrumentDiscount = "payment_method_conference_discount"
+	tableDiscountToPayment           = "payment_method_conference_discount_to_claim_payment"
 	tableFinancialInstrumentCredit   = "payment_method_credit_note"
 	tableCreditToPayment             = "payment_method_credit_note_to_claim_payment"
 )
@@ -393,7 +393,7 @@ func insertDiscountPayment(ctx context.Context, tx *sqldb.Tx, claimPaymentID uin
 	}
 	discount := PaymentMethodConferenceDiscount{}
 
-	sqlStatement := `INSERT INTO payment_method_conference_slotdiscount (amount, detail) VALUES ($1, $2)
+	sqlStatement := `INSERT INTO payment_method_conference_discount (amount, detail) VALUES ($1, $2)
 		RETURNING id, amount, detail`
 	sqlArgs := []interface{}{payment.Amount, payment.Detail}
 	var row *sqldb.Row
@@ -408,7 +408,7 @@ func insertDiscountPayment(ctx context.Context, tx *sqldb.Tx, claimPaymentID uin
 		return nil, fmt.Errorf("inserting discount payment: %w", err)
 	}
 
-	sqlStatement = `INSERT INTO payment_method_conference_slotdiscount_to_claim_payment (payment_method_conference_slotdiscount_id, claim_payment_id) VALUES ($1, $2)`
+	sqlStatement = `INSERT INTO payment_method_conference_discount_to_claim_payment (payment_method_conference_discount_id, claim_payment_id) VALUES ($1, $2)`
 	sqlArgs = []interface{}{discount.ID, claimPaymentID}
 	var res sql.Result
 
@@ -452,7 +452,7 @@ func insertCreditPayment(ctx context.Context, tx *sqldb.Tx, claimPaymentID uint6
 		return nil, fmt.Errorf("inserting money payment: %w", err)
 	}
 
-	sqlStatement = `INSERT INTO payment_method_conference_slotdiscount_to_claim_payment (payment_method_credit_note_to_claim_payment, claim_payment_id) VALUES ($1, $2)`
+	sqlStatement = `INSERT INTO payment_method_credit_note_to_claim_payment (payment_method_credit_note_id, claim_payment_id) VALUES ($1, $2)`
 	sqlArgs = []interface{}{credit.ID, claimPaymentID}
 	var res sql.Result
 

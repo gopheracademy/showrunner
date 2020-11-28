@@ -159,7 +159,9 @@ func Test_payClaims(t *testing.T) {
 	type want struct {
 		totalDue  int64
 		fullyPaid bool
+		fulfilled bool
 	}
+
 	att01 := &Attendee{
 		Email:       "testmail01@gophercon.com",
 		CoCAccepted: true,
@@ -168,15 +170,42 @@ func Test_payClaims(t *testing.T) {
 	if err != nil {
 		t.Fatalf("creating attendee: %v", err)
 	}
+
 	// There is an entry for general admision to gophercon 2021 preloaded in the first migration
 	cslot, err := readConferenceSlotByID(context.TODO(), nil, 1, false)
 	if err != nil {
 		t.Fatalf("retrieving conference slot: %v", err)
 	}
+	// test01 setup
 	claims01, err := claimSlots(context.TODO(), savedAttendee01, []ConferenceSlot{*cslot})
 	if err != nil {
-		t.Fatalf("claiming conference slot: %v", err)
+		t.Fatalf("claiming conference slot 1 of: %v", err)
 	}
+
+	// test02 setup
+	claims02, err := claimSlots(context.TODO(), savedAttendee01, []ConferenceSlot{*cslot})
+	if err != nil {
+		t.Fatalf("claiming conference slot 2 of: %v", err)
+	}
+
+	// test03 setup
+	claims03, err := claimSlots(context.TODO(), savedAttendee01, []ConferenceSlot{*cslot})
+	if err != nil {
+		t.Fatalf("claiming conference slot 3 of: %v", err)
+	}
+
+	// test04 setup
+	claims04, err := claimSlots(context.TODO(), savedAttendee01, []ConferenceSlot{*cslot})
+	if err != nil {
+		t.Fatalf("claiming conference slot 3 of: %v", err)
+	}
+
+	// test05 setup
+	claims05, err := claimSlots(context.TODO(), savedAttendee01, []ConferenceSlot{*cslot})
+	if err != nil {
+		t.Fatalf("claiming conference slot 3 of: %v", err)
+	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -191,7 +220,71 @@ func Test_payClaims(t *testing.T) {
 					PaymentRef: "somethingbystripe",
 					Amount:     400, // total of initial slot
 				}}},
-			want: want{totalDue: 400, fullyPaid: true},
+			want: want{totalDue: 400, fullyPaid: true, fulfilled: true},
+		},
+		{name: "full mixed payment",
+			args: args{ctx: context.TODO(),
+				attendee: savedAttendee01,
+				claims:   claims02,
+				payments: []FinancialInstrument{
+					&PaymentMethodMoney{
+						PaymentRef: "somethingbystripe",
+						Amount:     200,
+					},
+					&PaymentMethodConferenceDiscount{
+						Detail: "nice people discount",
+						Amount: 200,
+					},
+				}},
+			want: want{totalDue: 400, fullyPaid: true, fulfilled: true},
+		},
+		{name: "partial credit payment",
+			args: args{ctx: context.TODO(),
+				attendee: savedAttendee01,
+				claims:   claims03,
+				payments: []FinancialInstrument{
+					&PaymentMethodMoney{
+						PaymentRef: "somethingbystripe",
+						Amount:     200,
+					},
+					&PaymentMethodCreditNote{
+						Detail: "IOU from sponsor",
+						Amount: 200,
+					},
+				}},
+			want: want{totalDue: 400, fullyPaid: false, fulfilled: true},
+		},
+		{name: "full credit payment",
+			args: args{ctx: context.TODO(),
+				attendee: savedAttendee01,
+				claims:   claims04,
+				payments: []FinancialInstrument{
+					&PaymentMethodMoney{
+						PaymentRef: "somethingbystripe",
+						Amount:     200,
+					},
+					&PaymentMethodMoney{
+						PaymentRef: "somethingbystripe01",
+						Amount:     200,
+					},
+					&PaymentMethodCreditNote{
+						Detail: "IOU from sponsor",
+						Amount: 200,
+					},
+				}},
+			want: want{totalDue: 400, fullyPaid: true, fulfilled: true},
+		},
+		{name: "partial payment",
+			args: args{ctx: context.TODO(),
+				attendee: savedAttendee01,
+				claims:   claims05,
+				payments: []FinancialInstrument{
+					&PaymentMethodMoney{
+						PaymentRef: "somethingbystripe",
+						Amount:     200,
+					},
+				}},
+			want: want{totalDue: 400, fullyPaid: false, fulfilled: false},
 		},
 	}
 	for _, tt := range tests {
@@ -201,8 +294,11 @@ func Test_payClaims(t *testing.T) {
 				t.Errorf("payClaims() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if got.Fulfilled() != tt.want.fullyPaid {
-				t.Errorf("payClaims() fulfillment = %v, want %v", got.Fulfilled(), tt.want.fullyPaid)
+			if got.Paid() != tt.want.fullyPaid {
+				t.Errorf("payClaims() payment = %v, want %v", got.Paid(), tt.want.fullyPaid)
+			}
+			if got.Fulfilled() != tt.want.fulfilled {
+				t.Errorf("payClaims() fulfillment = %v, want %v", got.Fulfilled(), tt.want.fulfilled)
 			}
 			if got.TotalDue() != tt.want.totalDue {
 				t.Errorf("payClaims() payment due = %d , want %d", got.TotalDue(), tt.want.totalDue)
