@@ -148,3 +148,65 @@ func Test_claimSlots(t *testing.T) {
 		})
 	}
 }
+
+func Test_payClaims(t *testing.T) {
+	type args struct {
+		ctx      context.Context
+		attendee *Attendee
+		claims   []SlotClaim
+		payments []FinancialInstrument
+	}
+	type want struct {
+		totalDue  int64
+		fullyPaid bool
+	}
+	att01 := &Attendee{
+		Email:       "testmail01@gophercon.com",
+		CoCAccepted: true,
+	}
+	savedAttendee01, err := createAttendee(context.TODO(), nil, att01)
+	if err != nil {
+		t.Fatalf("creating attendee: %v", err)
+	}
+	// There is an entry for general admision to gophercon 2021 preloaded in the first migration
+	cslot, err := readConferenceSlotByID(context.TODO(), nil, 1, false)
+	if err != nil {
+		t.Fatalf("retrieving conference slot: %v", err)
+	}
+	claims01, err := claimSlots(context.TODO(), savedAttendee01, []ConferenceSlot{*cslot})
+	if err != nil {
+		t.Fatalf("claiming conference slot: %v", err)
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    want
+		wantErr bool
+	}{
+		{name: "full payment",
+			args: args{ctx: context.TODO(),
+				attendee: savedAttendee01,
+				claims:   claims01,
+				payments: []FinancialInstrument{&PaymentMethodMoney{
+					PaymentRef: "somethingbystripe",
+					Amount:     400, // total of initial slot
+				}}},
+			want: want{totalDue: 400, fullyPaid: true},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := payClaims(tt.args.ctx, tt.args.attendee, tt.args.claims, tt.args.payments)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("payClaims() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got.Fulfilled() != tt.want.fullyPaid {
+				t.Errorf("payClaims() fulfillment = %v, want %v", got.Fulfilled(), tt.want.fullyPaid)
+			}
+			if got.TotalDue() != tt.want.totalDue {
+				t.Errorf("payClaims() payment due = %d , want %d", got.TotalDue(), tt.want.totalDue)
+			}
+		})
+	}
+}

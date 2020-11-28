@@ -255,6 +255,7 @@ func updateConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSl
 func createSlotClaim(ctx context.Context, tx *sqldb.Tx, slotClaim *SlotClaim, attendeeID int64) (*SlotClaim, error) {
 	var err error
 
+	// TODO: add a dynamic field that sets the user as waitlist if slot is claimed.
 	sqlStatement := `INSERT INTO slot_claim (ticket_id, redeemed, conference_slot_id, attendee_id) VALUES ($1, $2, $3, $4)
 		RETURNING id, ticket_id, redeemed`
 	sqlArgs := []interface{}{slotClaim.TicketID, slotClaim.Redeemed, slotClaim.ConferenceSlot.ID, attendeeID}
