@@ -525,7 +525,7 @@ func createClaimPayment(ctx context.Context, tx *sqldb.Tx, c *ClaimPayment) (*Cl
 func updateClaimPayment(ctx context.Context, tx *sqldb.Tx, c *ClaimPayment) (*ClaimPayment, error) {
 	sqlStatement := `UPDATE claim_payment SET invoice = $1
 	WHERE id = $2`
-	sqlArgs := []interface{}{c.Invoice}
+	sqlArgs := []interface{}{c.Invoice, c.ID}
 
 	var res sql.Result
 	var err error
@@ -552,16 +552,28 @@ func updateClaimPayment(ctx context.Context, tx *sqldb.Tx, c *ClaimPayment) (*Cl
 	for i, cp := range c.Payment {
 		switch payment := cp.(type) {
 		case *PaymentMethodMoney:
+			if payment.ID != 0 {
+				processedPayments[i] = payment
+				continue
+			}
 			processedPayments[i], err = insertMoneyPayment(ctx, tx, c.ID, payment)
 			if err != nil {
 				return nil, fmt.Errorf("inserting money payment: %w", err)
 			}
 		case *PaymentMethodConferenceDiscount:
+			if payment.ID != 0 {
+				processedPayments[i] = payment
+				continue
+			}
 			processedPayments[i], err = insertDiscountPayment(ctx, tx, c.ID, payment)
 			if err != nil {
 				return nil, fmt.Errorf("inserting discount payment: %w", err)
 			}
 		case *PaymentMethodCreditNote:
+			if payment.ID != 0 {
+				processedPayments[i] = payment
+				continue
+			}
 			processedPayments[i], err = insertCreditPayment(ctx, tx, c.ID, payment)
 			if err != nil {
 				return nil, fmt.Errorf("inserting credit payment: %w", err)

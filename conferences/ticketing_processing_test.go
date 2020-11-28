@@ -306,3 +306,59 @@ func Test_payClaims(t *testing.T) {
 		})
 	}
 }
+
+func Test_coverCredit(t *testing.T) {
+	att01 := &Attendee{
+		Email:       "testmail01@gophercon.com",
+		CoCAccepted: true,
+	}
+	savedAttendee01, err := createAttendee(context.TODO(), nil, att01)
+	if err != nil {
+		t.Fatalf("creating attendee: %v", err)
+	}
+
+	// There is an entry for general admision to gophercon 2021 preloaded in the first migration
+	cslot, err := readConferenceSlotByID(context.TODO(), nil, 1, false)
+	if err != nil {
+		t.Fatalf("retrieving conference slot: %v", err)
+	}
+	// test01 setup
+	claims01, err := claimSlots(context.TODO(), savedAttendee01, []ConferenceSlot{*cslot})
+	if err != nil {
+		t.Fatalf("claiming conference slot 1 of: %v", err)
+	}
+
+	creditPayment := []FinancialInstrument{
+
+		&PaymentMethodCreditNote{
+			Detail: "IOU from sponsor",
+			Amount: 400,
+		},
+	}
+	payment, err := payClaims(context.TODO(), savedAttendee01, claims01, creditPayment)
+	if err != nil {
+		t.Fatalf("creating payment to cover: %v", err)
+	}
+
+	// try covering credit with Credit
+	err = coverCredit(context.TODO(), payment, []FinancialInstrument{
+		&PaymentMethodCreditNote{
+			Detail: "loopholeofdebth",
+			Amount: 200,
+		},
+	})
+	if err == nil {
+		t.Fatalf("covering payment with credit should have failed")
+	}
+
+	// actually cover credit
+	err = coverCredit(context.TODO(), payment, []FinancialInstrument{
+		&PaymentMethodMoney{
+			PaymentRef: "somethingbystripe",
+			Amount:     200,
+		},
+	})
+	if err != nil {
+		t.Fatalf("covering payment: %v", err)
+	}
+}
