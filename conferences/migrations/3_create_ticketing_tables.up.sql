@@ -1,19 +1,20 @@
 ALTER TABLE conference_slot ADD COLUMN depends_on INT REFERENCES conference_slot(id);
 
-CREATE TABLE slot_claim (
-    id SERIAL PRIMARY KEY,
-    attendee_id INT NOT NULL REFERENCES attendee(id),
-    conference_slot_id INT NOT NULL REFERENCES conference_slot(id) , 
-    ticket_id UUID NOT NULL UNIQUE,
-    redeemed BOOLEAN NOT NULL,
-    UNIQUE (attendee_id, conference_slot_id)
-);
 
 CREATE TABLE attendee (
     id SERIAL PRIMARY KEY,
     email TEXT NOT NULL , 
     coc_accepted BOOLEAN NOT NULL
+); 
+
+CREATE TABLE slot_claim (
+    id SERIAL PRIMARY KEY,
+    attendee_id INT NOT NULL REFERENCES attendee(id),
+    conference_slot_id INT NOT NULL REFERENCES conference_slot(id) , 
+    ticket_id UUID NOT NULL UNIQUE,
+    redeemed BOOLEAN NOT NULL
 );
+
 
 CREATE TABLE claim_payment (
     id SERIAL PRIMARY KEY,

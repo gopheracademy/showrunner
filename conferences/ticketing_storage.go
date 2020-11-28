@@ -42,14 +42,14 @@ func readAttendeeByEmail(ctx context.Context, tx *sqldb.Tx, email string) (*Atte
 }
 
 // readAttendeeByID returns an attendee for the given ID if one exists.
-func (s *SQLStorage) readAttendeeByID(ctx context.Context, tx *sqldb.Tx, id uint64) (*Attendee, error) {
+func (s *SQLStorage) readAttendeeByID(ctx context.Context, tx *sqldb.Tx, id int64) (*Attendee, error) {
 	if id == 0 {
 		return nil, fmt.Errorf("id is not valid")
 	}
 	return readAttendee(ctx, tx, "", id)
 }
 
-func readAttendee(ctx context.Context, tx *sqldb.Tx, email string, id uint64) (*Attendee, error) {
+func readAttendee(ctx context.Context, tx *sqldb.Tx, email string, id int64) (*Attendee, error) {
 	results := Attendee{}
 	sqlStatement := `SELECT id, email, coc_accepted FROM attendee`
 	sqlArgs := []interface{}{}
@@ -58,7 +58,7 @@ func readAttendee(ctx context.Context, tx *sqldb.Tx, email string, id uint64) (*
 		sqlArgs = append(sqlArgs, email)
 	}
 	if email != "" && id != 0 {
-		sqlStatement = `SELECT id, email, coc_accepted FROM attendee WHERE email = $1 AND WHERE id = $2`
+		sqlStatement = `SELECT id, email, coc_accepted FROM attendee WHERE email = $1 AND id = $2`
 		sqlArgs = append(sqlArgs, id)
 	}
 	if email == "" && id != 0 {
@@ -85,8 +85,7 @@ func readAttendee(ctx context.Context, tx *sqldb.Tx, email string, id uint64) (*
 	claims := []SlotClaim{}
 
 	sqlStatement = `SELECT id, ticket_id, redeemed FROM slot_claim 
-	JOIN attendees_to_slot_claims ON slot_claim.id = attendees_to_slot_claims.slot_claim_id
-	WHERE attendees_to_slot_claims.id = $1`
+	WHERE attendee_id = $1`
 	sqlArgs = []interface{}{results.ID}
 	var rows *sqldb.Rows
 
@@ -113,9 +112,9 @@ func readAttendee(ctx context.Context, tx *sqldb.Tx, email string, id uint64) (*
 
 // createConferenceSlot saves a slot in the database.
 func createConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSlot, conferenceID int64) (*ConferenceSlot, error) {
-	var sqlStatement = `INSERT INTO conference_slot (conference_id, name, description, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public)
+	var sqlStatement = `INSERT INTO conference_slot (conference_id, name, description, cost, capacity, start_date, end_date, purchaseable_from, purchaseable_until, available_to_public)
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
-	RETURNING conference_id, name, description, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public`
+	RETURNING conference_id, name, description, cost, capacity, start_date, end_date, purchaseable_from, purchaseable_until, available_to_public`
 	var sqlArgs = []interface{}{
 		conferenceID,
 		cslot.Name,
@@ -128,11 +127,11 @@ func createConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSl
 		cslot.PurchaseableUntil,
 		cslot.AvailableToPublic,
 	}
-	if cslot.DependsOn != nil {
-		sqlStatement = `INSERT INTO conference_slot (conference_id, name, description, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public, depends_on_id)
+	if cslot.DependsOn != 0 {
+		sqlStatement = `INSERT INTO conference_slot (conference_id, name, description, cost, capacity, start_date, end_date, purchaseable_from, purchaseable_until, available_to_public, depends_on)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-		RETURNING id, name, description, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public`
-		sqlArgs = append(sqlArgs, cslot.DependsOn.ID)
+		RETURNING id, name, description, cost, capacity, start_date, end_date, purchaseable_from, purchaseable_until, available_to_public`
+		sqlArgs = append(sqlArgs, cslot.DependsOn)
 	}
 	var row *sqldb.Row
 
@@ -165,7 +164,7 @@ func createConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSl
 func readConferenceSlotByID(ctx context.Context, tx *sqldb.Tx, id uint64, loadDeps bool) (*ConferenceSlot, error) {
 	results := ConferenceSlot{}
 	var row *sqldb.Row
-	sqlStatement := `SELECT (id, name, description, cost, capacity, start_date, end_date, purchaseable_form, purchaseable_until, available_to_public, depends_on)
+	sqlStatement := `SELECT id, name, description, cost, capacity, start_date, end_date, purchaseable_from, purchaseable_until, available_to_public, COALESCE(depends_on, 0)
 	FROM conference_slot 
 	WHERE id = $1`
 	sqlArgs := []interface{}{id}
@@ -174,8 +173,6 @@ func readConferenceSlotByID(ctx context.Context, tx *sqldb.Tx, id uint64, loadDe
 	} else {
 		row = sqldb.QueryRow(ctx, sqlStatement, sqlArgs...)
 	}
-
-	var dependsOnID uint64
 
 	err := row.Scan(&results.ID,
 		&results.Name,
@@ -187,19 +184,12 @@ func readConferenceSlotByID(ctx context.Context, tx *sqldb.Tx, id uint64, loadDe
 		&results.PurchaseableFrom,
 		&results.PurchaseableUntil,
 		&results.AvailableToPublic,
-		&dependsOnID)
+		&results.DependsOn)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("reading conference slots by id: %w", err)
-	}
-
-	if dependsOnID != 0 && loadDeps {
-		results.DependsOn, err = readConferenceSlotByID(ctx, tx, dependsOnID, false)
-		if err != nil {
-			return nil, fmt.Errorf("loading dependency: %w", err)
-		}
 	}
 
 	return &results, nil
@@ -210,7 +200,7 @@ func updateConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSl
 	// Regular update
 	var sqlStatement = `UPDATE conference_slot 
 	SET conference_id = $1, name = $2, description = $3, cost =$4, capacity=$5, 
-	start_date = $6, end_date = $7, purchaseable_form = $8, purchaseable_until = $9, 
+	start_date = $6, end_date = $7, purchaseable_from = $8, purchaseable_until = $9, 
 	available_to_public $10
 	WHERE id = $11`
 	var args = []interface{}{
@@ -227,13 +217,13 @@ func updateConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSl
 	}
 
 	// this slot depends on another
-	if cslot.DependsOn != nil {
+	if cslot.DependsOn != 0 {
 		sqlStatement = `UPDATE conference_slot
 	SET conference_id = $1, name = $2, description = $3, cost =$4, capacity=$5,
-	start_date = $6, end_date = $7, purchaseable_form = $8, purchaseable_until = $9,
-	available_to_public $10, depends_on_id = $11
+	start_date = $6, end_date = $7, purchaseable_from = $8, purchaseable_until = $9,
+	available_to_public $10, depends_on = $11
 	WHERE id = $12`
-		args = append(args, cslot.DependsOn.ID)
+		args = append(args, cslot.DependsOn)
 	}
 
 	// the id is the last argument of the query, always
@@ -588,8 +578,6 @@ func updateClaimPayment(ctx context.Context, tx *sqldb.Tx, c *ClaimPayment) (*Cl
 	return &newClaim, nil
 }
 
-const attendeesToSlotTable = "attendees_to_slot_claims"
-
 // changeSlotClaimOwner changes the passed claims owner from source to target
 func changeSlotClaimOwner(ctx context.Context, tx *sqldb.Tx, slots []SlotClaim, source *Attendee, target *Attendee) (*Attendee, *Attendee, error) {
 	if source == nil || target == nil {
@@ -614,7 +602,7 @@ func changeSlotClaimOwner(ctx context.Context, tx *sqldb.Tx, slots []SlotClaim, 
 		claimIDsIndex[slot.ID] = true
 	}
 
-	sqlStatement := `UPDATE attendees_to_slot_claims SET attendee_id = $1 WHERE attendee_id = $2 AND slot_claim_id = ANY($3)`
+	sqlStatement := `UPDATE slot_claims SET attendee_id = $1 WHERE attendee_id = $2 AND id = ANY($3)`
 	sqlArgs := []interface{}{target.ID, source.ID, pq.Int64Array(claimIDs)}
 
 	var res sql.Result
