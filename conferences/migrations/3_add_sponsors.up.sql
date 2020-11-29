@@ -7,7 +7,7 @@ CREATE TABLE sponsor(
   name TEXT NOT NULL,
   address TEXT NOT NULL,
   website TEXT NOT NULL,
-  conference_id SERIAL NOT NULL REFERENCES conference(id)
+  conference_id SERIAL NOT NULL REFERENCES conference(id),
   sponsorship_level sponsorship_level NOT NULL
 );
 
@@ -26,7 +26,7 @@ INSERT INTO sponsor (
   name, 
   address, 
   website, 
-  conference_id
+  conference_id,
   sponsorship_level
 ) VALUES (
   'Google', 
@@ -40,6 +40,7 @@ INSERT INTO sponsor (
   name, 
   address, 
   website, 
+  conference_id,
   sponsorship_level
 ) VALUES (
   '1Password', 
@@ -53,6 +54,7 @@ INSERT INTO sponsor (
   name, 
   address, 
   website, 
+  conference_id,
   sponsorship_level
 ) VALUES (
   'Sourcegraph', 
@@ -66,6 +68,7 @@ INSERT INTO sponsor (
   name, 
   address, 
   website, 
+  conference_id,
   sponsorship_level
 ) VALUES (
   'Sonobi', 

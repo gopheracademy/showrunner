@@ -20,7 +20,6 @@ type Conference struct {
 	StartDate time.Time
 	EndDate   time.Time
 	Venue     Venue
-	Slots     []ConferenceSlot
 }
 
 // ConferenceSlot holds information for any sellable/giftable slot we have in the event for
@@ -47,6 +46,7 @@ type ConferenceSlot struct {
 	// issue sponsor tickets and those cannot be bought individually)
 	AvailableToPublic bool
 	Location          Location
+	ConferenceID      uint32
 }
 
 // Venue defines a venue that hosts a conference, such as DisneyWorld
@@ -95,6 +95,7 @@ type Sponsor struct {
 	Website          string
 	SponsorshipLevel SponsorshipLevel
 	Contacts         []SponsorContactInformation
+	ConferenceID     uint32
 }
 
 // ContactRole defines the type that encapsulates the different contact roles
