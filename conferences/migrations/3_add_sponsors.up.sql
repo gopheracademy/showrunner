@@ -7,6 +7,7 @@ CREATE TABLE sponsor(
   name TEXT NOT NULL,
   address TEXT NOT NULL,
   website TEXT NOT NULL,
+  conference_id SERIAL NOT NULL REFERENCES conference(id)
   sponsorship_level sponsorship_level NOT NULL
 );
 
@@ -25,11 +26,13 @@ INSERT INTO sponsor (
   name, 
   address, 
   website, 
+  conference_id
   sponsorship_level
 ) VALUES (
   'Google', 
   'Google Plaza, Google Town, G00 G13', 
   'https://www.google.com', 
+  1,
   'platinum'
 );
 
@@ -42,6 +45,7 @@ INSERT INTO sponsor (
   '1Password', 
   'The Crypt, Qwerty Town, 123 456', 
   'https://www.1password.com', 
+  1,
   'gold'
 );
 
@@ -54,6 +58,7 @@ INSERT INTO sponsor (
   'Sourcegraph', 
   'Universal House, Code Creek, Search Street, 533728', 
   'https://www.sourcegraph.com', 
+  1, 
   'silver'
 );
 
@@ -66,6 +71,7 @@ INSERT INTO sponsor (
   'Sonobi', 
   'So Office, Nobi Building, 500081', 
   'https://www.sonobi.com', 
+  1, 
   'bronze'
 );
 
