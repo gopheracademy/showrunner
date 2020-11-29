@@ -49,8 +49,6 @@ func GetAll(ctx context.Context, params *GetAllParams) (*GetAllResponse, error) 
 		var event Event
 		var conference Conference
 
-		conference.Slots = []ConferenceSlot{}
-
 		err := rows.Scan(
 			&event.ID,
 			&event.Name,

@@ -20,7 +20,6 @@ type Conference struct {
 	StartDate time.Time
 	EndDate   time.Time
 	Venue     Venue
-	Slots     []ConferenceSlot
 }
 
 // ConferenceSlot holds information for any sellable/giftable slot we have in the event for
@@ -47,6 +46,7 @@ type ConferenceSlot struct {
 	// issue sponsor tickets and those cannot be bought individually)
 	AvailableToPublic bool
 	Location          Location
+	ConferenceID      uint32
 }
 
 // Venue defines a venue that hosts a conference, such as DisneyWorld
@@ -70,4 +70,58 @@ type Location struct {
 	GoogleMapsURL string
 	Capacity      int
 	VenueID       uint32
+}
+
+// SponsorshipLevel defines the type that encapsulates the different sponsorship levels
+type SponsorshipLevel int
+
+// These are the valid sponsorship levels
+const (
+	SponsorshipLevelPlatinum SponsorshipLevel = iota
+	SponsorshipLevelGold
+	SponsorshipLevelSilver
+	SponsorshipLevelBronze
+)
+
+func (s SponsorshipLevel) String() string {
+	return []string{"platinum", "gold", "silver", "bronze"}[s]
+}
+
+// Sponsor defines a conference sponsor, such as Google
+type Sponsor struct {
+	ID               uint32
+	Name             string
+	Address          string
+	Website          string
+	SponsorshipLevel SponsorshipLevel
+	Contacts         []SponsorContactInformation
+	ConferenceID     uint32
+}
+
+// ContactRole defines the type that encapsulates the different contact roles
+type ContactRole int
+
+// These are the valid contact roles
+const (
+	ContactRoleMarketing ContactRole = iota
+	ContactRoleLogistics
+	ContactRoleTechnical
+	ContactRoleOther
+	ContactRoleSoleContact
+)
+
+var contactRoleMappings = []string{"marketing", "logistics", "technical", "other", "sole_contact"}
+
+func (c ContactRole) String() string {
+	return contactRoleMappings[c]
+}
+
+// SponsorContactInformation defines a contact
+//and their information for a sponsor
+type SponsorContactInformation struct {
+	ID    uint32
+	Name  string
+	Role  ContactRole
+	Email string
+	Phone string
 }
