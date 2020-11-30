@@ -21,7 +21,9 @@ type GetAllResponse struct {
 func GetAll(ctx context.Context, params *GetAllParams) (*GetAllResponse, error) {
 
 	rows, err := sqldb.Query(ctx,
-		`SELECT event.*,
+		`SELECT event.id,
+		 event.name,
+		 event.slug,
 		 conference.id,
 		 conference.name,
 		 conference.slug,

@@ -22,7 +22,9 @@ type GetCurrentByEventResponse struct {
 func GetCurrentByEvent(ctx context.Context, params *GetCurrentByEventParams) (*GetCurrentByEventResponse, error) {
 
 	rows, err := sqldb.Query(ctx,
-		`SELECT event.*,
+		`SELECT event.id,
+		 event.name,
+		 event.slug,
 		 conference.id,
 		 conference.name,
 		 conference.slug,
