@@ -1,6 +1,8 @@
 package conferences
 
 import (
+	"database/sql/driver"
+	"errors"
 	"time"
 )
 
@@ -75,16 +77,64 @@ type Location struct {
 // SponsorshipLevel defines the type that encapsulates the different sponsorship levels
 type SponsorshipLevel int
 
+// Scan converts from database to Go value
+func (s *SponsorshipLevel) Scan(src interface{}) error {
+	if src == nil {
+		*s = SponsorshipLevelNone
+		return nil
+	}
+	if iv, err := driver.String.ConvertValue(src); err == nil {
+		if v, ok := iv.([]byte); ok {
+			sv := string(v)
+			switch sv {
+			case "none":
+				*s = SponsorshipLevelNone
+				return nil
+			case "diamond":
+				*s = SponsorshipLevelDiamond
+				return nil
+			case "platinum":
+				*s = SponsorshipLevelPlatinum
+				return nil
+			case "gold":
+				*s = SponsorshipLevelGold
+				return nil
+			case "silver":
+				*s = SponsorshipLevelSilver
+				return nil
+			case "bronze":
+				*s = SponsorshipLevelBronze
+				return nil
+			default:
+				*s = SponsorshipLevelNone
+				return nil
+			}
+		}
+	}
+	// otherwise, return an error
+	return errors.New("failed to scan SponsorshipLevel")
+}
+
+// Value - Implementation of valuer for database/sql
+func (s SponsorshipLevel) Value() (driver.Value, error) {
+	// value needs to be a base driver.Value type
+	// such as bool.
+	return s.String(), nil
+}
+
 // These are the valid sponsorship levels
 const (
-	SponsorshipLevelPlatinum SponsorshipLevel = iota
+	SponsorshipLevelNone = iota
+	SponsorshipLevelDiamond
+	SponsorshipLevelPlatinum
 	SponsorshipLevelGold
 	SponsorshipLevelSilver
 	SponsorshipLevelBronze
+	SponsorshipLevelOther
 )
 
 func (s SponsorshipLevel) String() string {
-	return []string{"platinum", "gold", "silver", "bronze"}[s]
+	return []string{"none", "diamond", "platinum", "gold", "silver", "bronze", "other"}[s]
 }
 
 // Sponsor defines a conference sponsor, such as Google

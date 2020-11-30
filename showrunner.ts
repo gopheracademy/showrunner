@@ -8,49 +8,6 @@ export class Client {
 }
 
 export namespace conferences {
-    export interface Location {
-        ID: number;
-        Name: string;
-        Description: string;
-        Address: string;
-        Directions: string;
-        GoogleMapsURL: string;
-        Capacity: number;
-        VenueID: number;
-    }
-
-    export interface GetCurrentByEventParams {
-        EventID: number;
-    }
-
-    export interface GetAllResponse {
-        Events: Event[];
-    }
-
-    export interface GetConferenceSlotsParams {
-        ConferenceID: number;
-    }
-
-    export interface GetConferenceSlotsResponse {
-        ConferenceSlots: ConferenceSlot[];
-    }
-
-    export interface GetCurrentByEventResponse {
-        Event: Event;
-    }
-
-    export interface UpdateSponsorContactParams {
-        SponsorContactInformation: SponsorContactInformation;
-    }
-
-    export interface SponsorContactInformation {
-        ID: number;
-        Name: string;
-        Role: number;
-        Email: string;
-        Phone: string;
-    }
-
     export interface ConferenceSlot {
         ID: number;
         Name: string;
@@ -84,11 +41,75 @@ export namespace conferences {
         ConferenceID: number;
     }
 
+    export interface GetCurrentByEventParams {
+        EventID: number;
+    }
+
+    export interface SponsorContactInformation {
+        ID: number;
+        Name: string;
+        Role: number;
+        Email: string;
+        Phone: string;
+    }
+
+    export interface GetConferenceSlotsResponse {
+        ConferenceSlots: ConferenceSlot[];
+    }
+
     export interface Event {
         ID: number;
         Name: string;
         Slug: string;
         Conferences: Conference[];
+    }
+
+    export interface GetAllParams {
+    }
+
+    export interface GetAllResponse {
+        Events: Event[];
+    }
+
+    export interface UpdateSponsorContactParams {
+        SponsorContactInformation: SponsorContactInformation;
+    }
+
+    export interface GetConferenceSponsorsParams {
+        ConferenceID: number;
+    }
+
+    export interface GetConferenceSlotsParams {
+        ConferenceID: number;
+    }
+
+    export interface Location {
+        ID: number;
+        Name: string;
+        Description: string;
+        Address: string;
+        Directions: string;
+        GoogleMapsURL: string;
+        Capacity: number;
+        VenueID: number;
+    }
+
+    export interface GetConferenceSponsorsResponse {
+        Sponsors: Sponsor[];
+    }
+
+    export interface Sponsor {
+        ID: number;
+        Name: string;
+        Address: string;
+        Website: string;
+        SponsorshipLevel: number;
+        Contacts: SponsorContactInformation[];
+        ConferenceID: number;
+    }
+
+    export interface GetCurrentByEventResponse {
+        Event: Event;
     }
 
     export interface Conference {
@@ -98,9 +119,6 @@ export namespace conferences {
         StartDate: string;
         EndDate: string;
         Venue: Venue;
-    }
-
-    export interface GetAllParams {
     }
 
     export interface Venue {
@@ -149,6 +167,13 @@ export namespace conferences {
          */
         public UpdateSponsorContact(params: UpdateSponsorContactParams): Promise<UpdateSponsorContactResponse> {
             return this.baseClient.do<UpdateSponsorContactResponse>("conferences.UpdateSponsorContact", params);
+        }
+
+        /**
+         * GetConferenceSponsors retrieves the sponsors for a specific conference
+         */
+        public GetConferenceSponsors(params: GetConferenceSponsorsParams): Promise<GetConferenceSponsorsResponse> {
+            return this.baseClient.do<GetConferenceSponsorsResponse>("conferences.GetConferenceSponsors", params);
         }
     }
 }
