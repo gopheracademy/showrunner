@@ -123,7 +123,8 @@ func (s SponsorshipLevel) Value() (driver.Value, error) {
 }
 
 // These are the valid sponsorship levels
-// Not all of these may be used each year.
+// Not all of these may be used each year, for
+// example 2020 had no Diamonds
 const (
 	SponsorshipLevelNone = iota
 	SponsorshipLevelDiamond
