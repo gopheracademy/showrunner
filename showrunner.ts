@@ -1,13 +1,30 @@
-export class Client {
+export default class Client {
     conferences: conferences.ServiceClient;
 
-    constructor(environment: string) {
-        const base = new BaseClient(environment)
+    constructor(environment: string = "production", token?: string) {
+        const base = new BaseClient(environment, token)
         this.conferences = new conferences.ServiceClient(base)
     }
 }
 
 export namespace conferences {
+    /**
+     * Conference is an instance like GopherCon 2020
+     */
+    export interface Conference {
+        ID: number;
+        Name: string;
+        Slug: string;
+        StartDate: string;
+        EndDate: string;
+        Venue: Venue;
+    }
+
+    /**
+     * ConferenceSlot holds information for any sellable/giftable slot we have in the event for
+     * a Talk or any other activity that requires admission.
+     * store: "interface"
+     */
     export interface ConferenceSlot {
         ID: number;
         Name: string;
@@ -16,11 +33,13 @@ export namespace conferences {
         Capacity: number;
         StartDate: string;
         EndDate: string;
-
         /**
          * DependsOn means that these two Slots need to be acquired together, user must either buy
          * both Slots or pre-own one of the one it depends on.
-         * DependsOn *ConferenceSlot // Currently removed as it broke encore
+         */
+        DependsOn: number;
+
+        /**
          * PurchaseableFrom indicates when this item is on sale, for instance early bird tickets are the first
          * ones to go on sale.
          */
@@ -37,26 +56,19 @@ export namespace conferences {
          * issue sponsor tickets and those cannot be bought individually)
          */
         AvailableToPublic: boolean;
+
         Location: Location;
         ConferenceID: number;
     }
 
-    export interface GetCurrentByEventParams {
-        EventID: number;
-    }
+    /**
+     * ContactRole defines the type that encapsulates the different contact roles
+     */
+    export interface ContactRole number
 
-    export interface SponsorContactInformation {
-        ID: number;
-        Name: string;
-        Role: number;
-        Email: string;
-        Phone: string;
-    }
-
-    export interface GetConferenceSlotsResponse {
-        ConferenceSlots: ConferenceSlot[];
-    }
-
+    /**
+     * Event is a brand like GopherCon
+     */
     export interface Event {
         ID: number;
         Name: string;
@@ -64,25 +76,64 @@ export namespace conferences {
         Conferences: Conference[];
     }
 
+    /**
+     * GetAllParams defines the inputs used by the GetAll API method
+     */
     export interface GetAllParams {
     }
 
+    /**
+     * GetAllResponse defines the output returned by the GetAll API method
+     */
     export interface GetAllResponse {
         Events: Event[];
     }
 
-    export interface UpdateSponsorContactParams {
-        SponsorContactInformation: SponsorContactInformation;
-    }
-
-    export interface GetConferenceSponsorsParams {
-        ConferenceID: number;
-    }
-
+    /**
+     * GetConferenceSlotsParams defines the inputs used by the GetConferenceSlots API method
+     */
     export interface GetConferenceSlotsParams {
         ConferenceID: number;
     }
 
+    /**
+     * GetConferenceSlotsResponse defines the output returned by the GetConferenceSlots API method
+     */
+    export interface GetConferenceSlotsResponse {
+        ConferenceSlots: ConferenceSlot[];
+    }
+
+    /**
+     * GetConferenceSponsorsParams defines the inputs used by the GetConferenceSponsors API method
+     */
+    export interface GetConferenceSponsorsParams {
+        ConferenceID: number;
+    }
+
+    /**
+     * GetConferenceSponsorsResponse defines the output returned by the GetConferenceSponsors API method
+     */
+    export interface GetConferenceSponsorsResponse {
+        Sponsors: Sponsor[];
+    }
+
+    /**
+     * GetCurrentByEventParams defines the inputs used by the GetCurrentByEvent API method
+     */
+    export interface GetCurrentByEventParams {
+        EventID: number;
+    }
+
+    /**
+     * GetCurrentByEventResponse defines the output returned by the GetCurrentByEvent API method
+     */
+    export interface GetCurrentByEventResponse {
+        Event: Event;
+    }
+
+    /**
+     * Location defines a location for a venue, such as a room or event space
+     */
     export interface Location {
         ID: number;
         Name: string;
@@ -94,33 +145,52 @@ export namespace conferences {
         VenueID: number;
     }
 
-    export interface GetConferenceSponsorsResponse {
-        Sponsors: Sponsor[];
-    }
-
+    /**
+     * Sponsor defines a conference sponsor, such as Google
+     */
     export interface Sponsor {
         ID: number;
         Name: string;
         Address: string;
         Website: string;
-        SponsorshipLevel: number;
+        SponsorshipLevel: SponsorshipLevel;
         Contacts: SponsorContactInformation[];
         ConferenceID: number;
     }
 
-    export interface GetCurrentByEventResponse {
-        Event: Event;
-    }
-
-    export interface Conference {
+    /**
+     * SponsorContactInformation defines a contact
+     * and their information for a sponsor
+     */
+    export interface SponsorContactInformation {
         ID: number;
         Name: string;
-        Slug: string;
-        StartDate: string;
-        EndDate: string;
-        Venue: Venue;
+        Role: ContactRole;
+        Email: string;
+        Phone: string;
     }
 
+    /**
+     * SponsorshipLevel defines the type that encapsulates the different sponsorship levels
+     */
+    export interface SponsorshipLevel number
+
+    /**
+     * UpdateSponsorContactParams defines the inputs used by the UpdateSponsorContactParams API method
+     */
+    export interface UpdateSponsorContactParams {
+        SponsorContactInformation: SponsorContactInformation;
+    }
+
+    /**
+     * UpdateSponsorContactResponse defines the output returned by the UpdateSponsorContactResponse API method
+     */
+    export interface UpdateSponsorContactResponse {
+    }
+
+    /**
+     * Venue defines a venue that hosts a conference, such as DisneyWorld
+     */
     export interface Venue {
         ID: number;
         Name: string;
@@ -131,28 +201,11 @@ export namespace conferences {
         Capacity: number;
     }
 
-    export interface UpdateSponsorContactResponse {
-    }
-
     export class ServiceClient {
         private baseClient: BaseClient;
 
         constructor(baseClient: BaseClient) {
             this.baseClient = baseClient
-        }
-
-        /**
-         * GetConferenceSlots retrieves all event slots for a specific event id
-         */
-        public GetConferenceSlots(params: GetConferenceSlotsParams): Promise<GetConferenceSlotsResponse> {
-            return this.baseClient.do<GetConferenceSlotsResponse>("conferences.GetConferenceSlots", params);
-        }
-
-        /**
-         * GetCurrentByEvent retrieves the current conference and event information for a specific event
-         */
-        public GetCurrentByEvent(params: GetCurrentByEventParams): Promise<GetCurrentByEventResponse> {
-            return this.baseClient.do<GetCurrentByEventResponse>("conferences.GetCurrentByEvent", params);
         }
 
         /**
@@ -163,10 +216,10 @@ export namespace conferences {
         }
 
         /**
-         * UpdateSponsorContact retrieves all conferences and events
+         * GetConferenceSlots retrieves all event slots for a specific event id
          */
-        public UpdateSponsorContact(params: UpdateSponsorContactParams): Promise<UpdateSponsorContactResponse> {
-            return this.baseClient.do<UpdateSponsorContactResponse>("conferences.UpdateSponsorContact", params);
+        public GetConferenceSlots(params: GetConferenceSlotsParams): Promise<GetConferenceSlotsResponse> {
+            return this.baseClient.do<GetConferenceSlotsResponse>("conferences.GetConferenceSlots", params);
         }
 
         /**
@@ -175,13 +228,32 @@ export namespace conferences {
         public GetConferenceSponsors(params: GetConferenceSponsorsParams): Promise<GetConferenceSponsorsResponse> {
             return this.baseClient.do<GetConferenceSponsorsResponse>("conferences.GetConferenceSponsors", params);
         }
+
+        /**
+         * GetCurrentByEvent retrieves the current conference and event information for a specific event
+         */
+        public GetCurrentByEvent(params: GetCurrentByEventParams): Promise<GetCurrentByEventResponse> {
+            return this.baseClient.do<GetCurrentByEventResponse>("conferences.GetCurrentByEvent", params);
+        }
+
+        /**
+         * UpdateSponsorContact retrieves all conferences and events
+         */
+        public UpdateSponsorContact(params: UpdateSponsorContactParams): Promise<UpdateSponsorContactResponse> {
+            return this.baseClient.do<UpdateSponsorContactResponse>("conferences.UpdateSponsorContact", params);
+        }
     }
 }
 
 class BaseClient {
-    baseURL: string;
+	baseURL: string;
+	headers: {[key: string]: string};
 
-    constructor(environment: string) {
+    constructor(environment: string, token?: string) {
+		this.headers = {"Content-Type": "application/json"}
+		if (token !== undefined) {
+			this.headers["Authorization"] = "Bearer " + token
+		}
 		if (environment === "dev") {
 			this.baseURL = "http://localhost:4060/"
 		} else {
@@ -192,9 +264,7 @@ class BaseClient {
     public async do<T>(endpoint: string, req?: any): Promise<T> {
         let response = await fetch(this.baseURL + endpoint, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
+            headers: this.headers,
             body: JSON.stringify(req || {})
         })
         if (!response.ok) {
@@ -207,9 +277,7 @@ class BaseClient {
     public async doVoid(endpoint: string, req?: any): Promise<void> {
         let response = await fetch(this.baseURL + endpoint, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
+            headers: this.headers,
             body: JSON.stringify(req || {})
         })
         if (!response.ok) {
@@ -219,6 +287,3 @@ class BaseClient {
         await response.text()
     }
 }
-
-const client = new Client("azure")
-export default client
