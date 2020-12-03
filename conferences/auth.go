@@ -12,6 +12,7 @@ var secrets struct {
 	JWTKey string
 }
 
+// Data is the structure that Encore returns with information about the authenticated user
 type Data struct {
 	Exp              float64  `json:"exp"`
 	Iat              float64  `json:"iat"`
@@ -21,16 +22,18 @@ type Data struct {
 	UserRoles        []string `json:"userRoles"`
 }
 
+// VerifyToken accepts a JWT token and returns a UserID and User Data, or an error.
+// Return a zero-value UID for Unauthorized, return a non-nil error for a 500 error
 // encore:authhandler
 func VerifyToken(ctx context.Context, token string) (auth.UID, *Data, error) {
-	// Look up in database etc...
 	rlog.Info("decrypting token", "token", token)
 	tok, err := jwt.Parse(token, nil)
 	if tok == nil {
-		return auth.UID("ERROR"), nil, err
+		return auth.UID(""), nil, err
 	}
 	claims, _ := tok.Claims.(jwt.MapClaims)
 	d := mapClaims(claims)
+	//TODO: actually validate things from the token/claims
 	return auth.UID(d.UserID), d, nil
 }
 
