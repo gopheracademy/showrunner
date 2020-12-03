@@ -3,6 +3,7 @@ package conferences
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"encore.dev/storage/sqldb"
@@ -48,17 +49,20 @@ func readAttendee(ctx context.Context, tx *sqldb.Tx, email string, id int64) (*A
 	results := Attendee{}
 	sqlStatement := `SELECT id, email, coc_accepted FROM attendee`
 	sqlArgs := []interface{}{}
-	if email != "" {
+	switch {
+	case email != "":
 		sqlStatement = `SELECT id, email, coc_accepted FROM attendee WHERE email = $1`
 		sqlArgs = append(sqlArgs, email)
-	}
-	if email != "" && id != 0 {
+
+	case email != "" && id != 0:
 		sqlStatement = `SELECT id, email, coc_accepted FROM attendee WHERE email = $1 AND id = $2`
-		sqlArgs = append(sqlArgs, id)
-	}
-	if email == "" && id != 0 {
+		sqlArgs = append(sqlArgs, email, id)
+
+	case email == "" && id != 0:
 		sqlStatement = `SELECT id, email, coc_accepted FROM attendee WHERE id = $1`
 		sqlArgs = append(sqlArgs, id)
+	default:
+		return nil, errors.New("either email or ID has to be set")
 	}
 
 	var row *sqldb.Row
@@ -343,9 +347,9 @@ func insertMoneyPayment(ctx context.Context, tx *sqldb.Tx, claimPaymentID uint64
 	}
 	money := PaymentMethodMoney{}
 
-	sqlStatement := `INSERT INTO payment_method_money (amount, ref) VALUES ($1, $2)
-		RETURNING id, amount, ref`
-	sqlArgs := []interface{}{payment.Amount, payment.PaymentRef}
+	sqlStatement := `INSERT INTO payment_method_money (amount_cents, ref, claim_payment_id) VALUES ($1, $2, $3)
+		RETURNING id, amount_cents, ref`
+	sqlArgs := []interface{}{payment.AmountCents, payment.PaymentRef, claimPaymentID}
 
 	var row *sqldb.Row
 
@@ -354,31 +358,11 @@ func insertMoneyPayment(ctx context.Context, tx *sqldb.Tx, claimPaymentID uint64
 	} else {
 		row = sqldb.QueryRow(ctx, sqlStatement, sqlArgs...)
 	}
-	err := row.Scan(&money.ID, &money.Amount, &money.PaymentRef)
+	err := row.Scan(&money.ID, &money.AmountCents, &money.PaymentRef)
 	if err != nil {
 		return nil, fmt.Errorf("inserting money payment: %w", err)
 	}
 
-	sqlStatement = `INSERT INTO payment_method_money_to_claim_payment (payment_method_money_id, claim_payment_id) VALUES ($1, $2)`
-	sqlArgs = []interface{}{money.ID, claimPaymentID}
-
-	var res sql.Result
-
-	if tx != nil {
-		res, err = sqldb.ExecTx(tx, ctx, sqlStatement, sqlArgs...)
-	} else {
-		res, err = sqldb.Exec(ctx, sqlStatement, sqlArgs...)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("relating financial instrument money to payment: %w", err)
-	}
-	ra, err := res.RowsAffected()
-	if err != nil {
-		return nil, fmt.Errorf("relating financial instrument money to payment: %w", err)
-	}
-	if ra == 0 {
-		return nil, fmt.Errorf("failed to claim payment")
-	}
 	return &money, nil
 }
 
@@ -388,9 +372,9 @@ func insertDiscountPayment(ctx context.Context, tx *sqldb.Tx, claimPaymentID uin
 	}
 	discount := PaymentMethodConferenceDiscount{}
 
-	sqlStatement := `INSERT INTO payment_method_conference_discount (amount, detail) VALUES ($1, $2)
-		RETURNING id, amount, detail`
-	sqlArgs := []interface{}{payment.Amount, payment.Detail}
+	sqlStatement := `INSERT INTO payment_method_conference_discount (amount_cents, detail, claim_payment_id) VALUES ($1, $2, $3)
+		RETURNING id, amount_cents, detail`
+	sqlArgs := []interface{}{payment.AmountCents, payment.Detail, claimPaymentID}
 	var row *sqldb.Row
 
 	if tx != nil {
@@ -398,32 +382,12 @@ func insertDiscountPayment(ctx context.Context, tx *sqldb.Tx, claimPaymentID uin
 	} else {
 		row = sqldb.QueryRow(ctx, sqlStatement, sqlArgs...)
 	}
-	err := row.Scan(&discount.ID, &discount.Amount, &discount.Detail)
+	err := row.Scan(&discount.ID, &discount.AmountCents, &discount.Detail)
 	if err != nil {
 		return nil, fmt.Errorf("inserting discount payment: %w", err)
 	}
 
-	sqlStatement = `INSERT INTO payment_method_conference_discount_to_claim_payment (payment_method_conference_discount_id, claim_payment_id) VALUES ($1, $2)`
-	sqlArgs = []interface{}{discount.ID, claimPaymentID}
-	var res sql.Result
-
-	if tx != nil {
-		res, err = sqldb.ExecTx(tx, ctx, sqlStatement, sqlArgs...)
-	} else {
-		res, err = sqldb.Exec(ctx, sqlStatement, sqlArgs...)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("relating financial instrument discount to payment: %w", err)
-	}
-	ra, err := res.RowsAffected()
-	if err != nil {
-		return nil, fmt.Errorf("relating financial instrument discount to payment: %w", err)
-	}
-	if ra == 0 {
-		return nil, fmt.Errorf("failed to claim payment")
-	}
 	return &discount, nil
-
 }
 
 func insertCreditPayment(ctx context.Context, tx *sqldb.Tx, claimPaymentID uint64, payment *PaymentMethodCreditNote) (*PaymentMethodCreditNote, error) {
@@ -432,9 +396,9 @@ func insertCreditPayment(ctx context.Context, tx *sqldb.Tx, claimPaymentID uint6
 	}
 	credit := PaymentMethodCreditNote{}
 
-	sqlStatement := `INSERT INTO payment_method_credit_note (amount, detail) VALUES ($1, $2)
-		RETURNING id, amount, detail`
-	sqlArgs := []interface{}{payment.Amount, payment.Detail}
+	sqlStatement := `INSERT INTO payment_method_credit_note (amount_cents, detail, claim_payment_id) VALUES ($1, $2, $3)
+		RETURNING id, amount_cents, detail`
+	sqlArgs := []interface{}{payment.AmountCents, payment.Detail, claimPaymentID}
 	var row *sqldb.Row
 
 	if tx != nil {
@@ -442,32 +406,11 @@ func insertCreditPayment(ctx context.Context, tx *sqldb.Tx, claimPaymentID uint6
 	} else {
 		row = sqldb.QueryRow(ctx, sqlStatement, sqlArgs...)
 	}
-	err := row.Scan(&credit.ID, &credit.Amount, &credit.Detail)
+	err := row.Scan(&credit.ID, &credit.AmountCents, &credit.Detail)
 	if err != nil {
 		return nil, fmt.Errorf("inserting money payment: %w", err)
 	}
-
-	sqlStatement = `INSERT INTO payment_method_credit_note_to_claim_payment (payment_method_credit_note_id, claim_payment_id) VALUES ($1, $2)`
-	sqlArgs = []interface{}{credit.ID, claimPaymentID}
-	var res sql.Result
-
-	if tx != nil {
-		res, err = sqldb.ExecTx(tx, ctx, sqlStatement, sqlArgs...)
-	} else {
-		res, err = sqldb.Exec(ctx, sqlStatement, sqlArgs...)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("relating financial instrument credit to payment: %w", err)
-	}
-	ra, err := res.RowsAffected()
-	if err != nil {
-		return nil, fmt.Errorf("relating financial instrument credit to payment: %w", err)
-	}
-	if ra == 0 {
-		return nil, fmt.Errorf("failed to claim payment")
-	}
 	return &credit, nil
-
 }
 
 func createClaimPayment(ctx context.Context, tx *sqldb.Tx, c *ClaimPayment) (*ClaimPayment, error) {

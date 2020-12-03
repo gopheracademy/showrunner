@@ -38,7 +38,7 @@ type ConferenceSlot struct {
 	EndDate     time.Time
 	// DependsOn means that these two Slots need to be acquired together, user must either buy
 	// both Slots or pre-own one of the one it depends on.
-	DependsOn uint32 // Currently removed as it broke encore
+	DependsOn uint32
 	// PurchaseableFrom indicates when this item is on sale, for instance early bird tickets are the first
 	// ones to go on sale.
 	PurchaseableFrom time.Time
@@ -132,14 +132,14 @@ type Attendee struct {
 
 // PaymentMethodMoney represents a payment in cash.
 type PaymentMethodMoney struct {
-	ID         uint64
-	PaymentRef string // stripe payment ID/Log?
-	Amount     int64  // Money is handled in cents as it is done by our payment processor (stripe)
+	ID          uint64
+	PaymentRef  string // stripe payment ID/Log?
+	AmountCents int64  // Money is handled in cents as it is done by our payment processor (stripe)
 }
 
 // Total implements FinancialInstrument
 func (p *PaymentMethodMoney) Total() int64 {
-	return p.Amount
+	return p.AmountCents
 }
 
 // Type implements FinancialInstrument
@@ -153,13 +153,13 @@ var _ FinancialInstrument = &PaymentMethodMoney{}
 type PaymentMethodConferenceDiscount struct {
 	ID uint64
 	// Detail describes what kind of discount was issued (ie 100% sponsor, 30% grant)
-	Detail string
-	Amount int64 // Money is handled in cents as it is done by our payment processor (stripe)
+	Detail      string
+	AmountCents int64 // Money is handled in cents as it is done by our payment processor (stripe)
 }
 
 // Total implements FinancialInstrument
 func (p *PaymentMethodConferenceDiscount) Total() int64 {
-	return p.Amount
+	return p.AmountCents
 }
 
 // Type implements FinancialInstrument
@@ -171,14 +171,14 @@ var _ FinancialInstrument = &PaymentMethodConferenceDiscount{}
 
 // PaymentMethodCreditNote represents credit extended to defer payment.
 type PaymentMethodCreditNote struct {
-	ID     uint64
-	Detail string
-	Amount int64 // Money is handled in cents as it is done by our payment processor (stripe)
+	ID          uint64
+	Detail      string
+	AmountCents int64 // Money is handled in cents as it is done by our payment processor (stripe)
 }
 
 // Total implements FinancialInstrument
 func (p *PaymentMethodCreditNote) Total() int64 {
-	return p.Amount
+	return p.AmountCents
 }
 
 // Type implements FinancialInstrument

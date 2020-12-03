@@ -65,9 +65,9 @@ func Test_claimSlots(t *testing.T) {
 			name: "claim admission to general event",
 			args: args{
 				ctx:   context.TODO(),
-				slots: map[*Attendee][]ConferenceSlot{savedAttendee01: []ConferenceSlot{*cslot}},
+				slots: map[*Attendee][]ConferenceSlot{savedAttendee01: {*cslot}},
 			},
-			want: map[*Attendee][]SlotClaim{savedAttendee01: []SlotClaim{
+			want: map[*Attendee][]SlotClaim{savedAttendee01: {
 				{
 					ID:             1,
 					ConferenceSlot: cslot,
@@ -218,8 +218,8 @@ func Test_payClaims(t *testing.T) {
 				attendee: savedAttendee01,
 				claims:   claims01,
 				payments: []FinancialInstrument{&PaymentMethodMoney{
-					PaymentRef: "somethingbystripe",
-					Amount:     400, // total of initial slot
+					PaymentRef:  "somethingbystripe",
+					AmountCents: 400, // total of initial slot
 				}}},
 			want: want{totalDue: 400, fullyPaid: true, fulfilled: true},
 		},
@@ -229,12 +229,12 @@ func Test_payClaims(t *testing.T) {
 				claims:   claims02,
 				payments: []FinancialInstrument{
 					&PaymentMethodMoney{
-						PaymentRef: "somethingbystripe",
-						Amount:     200,
+						PaymentRef:  "somethingbystripe",
+						AmountCents: 200,
 					},
 					&PaymentMethodConferenceDiscount{
-						Detail: "nice people discount",
-						Amount: 200,
+						Detail:      "nice people discount",
+						AmountCents: 200,
 					},
 				}},
 			want: want{totalDue: 400, fullyPaid: true, fulfilled: true},
@@ -245,12 +245,12 @@ func Test_payClaims(t *testing.T) {
 				claims:   claims03,
 				payments: []FinancialInstrument{
 					&PaymentMethodMoney{
-						PaymentRef: "somethingbystripe",
-						Amount:     200,
+						PaymentRef:  "somethingbystripe",
+						AmountCents: 200,
 					},
 					&PaymentMethodCreditNote{
-						Detail: "IOU from sponsor",
-						Amount: 200,
+						Detail:      "IOU from sponsor",
+						AmountCents: 200,
 					},
 				}},
 			want: want{totalDue: 400, fullyPaid: false, fulfilled: true},
@@ -261,16 +261,16 @@ func Test_payClaims(t *testing.T) {
 				claims:   claims04,
 				payments: []FinancialInstrument{
 					&PaymentMethodMoney{
-						PaymentRef: "somethingbystripe",
-						Amount:     200,
+						PaymentRef:  "somethingbystripe",
+						AmountCents: 200,
 					},
 					&PaymentMethodMoney{
-						PaymentRef: "somethingbystripe01",
-						Amount:     200,
+						PaymentRef:  "somethingbystripe01",
+						AmountCents: 200,
 					},
 					&PaymentMethodCreditNote{
-						Detail: "IOU from sponsor",
-						Amount: 200,
+						Detail:      "IOU from sponsor",
+						AmountCents: 200,
 					},
 				}},
 			want: want{totalDue: 400, fullyPaid: true, fulfilled: true},
@@ -281,8 +281,8 @@ func Test_payClaims(t *testing.T) {
 				claims:   claims05,
 				payments: []FinancialInstrument{
 					&PaymentMethodMoney{
-						PaymentRef: "somethingbystripe",
-						Amount:     200,
+						PaymentRef:  "somethingbystripe",
+						AmountCents: 200,
 					},
 				}},
 			want: want{totalDue: 400, fullyPaid: false, fulfilled: false},
@@ -332,8 +332,8 @@ func Test_coverCredit(t *testing.T) {
 	creditPayment := []FinancialInstrument{
 
 		&PaymentMethodCreditNote{
-			Detail: "IOU from sponsor",
-			Amount: 400,
+			Detail:      "IOU from sponsor",
+			AmountCents: 400,
 		},
 	}
 	payment, err := payClaims(context.TODO(), savedAttendee01, claims01, creditPayment)
@@ -344,8 +344,8 @@ func Test_coverCredit(t *testing.T) {
 	// try covering credit with Credit
 	err = coverCredit(context.TODO(), payment, []FinancialInstrument{
 		&PaymentMethodCreditNote{
-			Detail: "loopholeofdebth",
-			Amount: 200,
+			Detail:      "loopholeofdebth",
+			AmountCents: 200,
 		},
 	})
 	if err == nil {
@@ -355,8 +355,8 @@ func Test_coverCredit(t *testing.T) {
 	// actually cover credit
 	err = coverCredit(context.TODO(), payment, []FinancialInstrument{
 		&PaymentMethodMoney{
-			PaymentRef: "somethingbystripe",
-			Amount:     200,
+			PaymentRef:  "somethingbystripe",
+			AmountCents: 200,
 		},
 	})
 	if err != nil {
