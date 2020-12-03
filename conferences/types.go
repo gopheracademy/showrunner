@@ -1,6 +1,8 @@
 package conferences
 
 import (
+	"database/sql/driver"
+	"errors"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -22,7 +24,6 @@ type Conference struct {
 	StartDate time.Time
 	EndDate   time.Time
 	Venue     Venue
-	Slots     []ConferenceSlot
 }
 
 // ConferenceSlot holds information for any sellable/giftable slot we have in the event for
@@ -49,6 +50,7 @@ type ConferenceSlot struct {
 	// issue sponsor tickets and those cannot be bought individually)
 	AvailableToPublic bool
 	Location          Location
+	ConferenceID      uint32
 }
 
 // Venue defines a venue that hosts a conference, such as DisneyWorld
@@ -254,4 +256,108 @@ func debtBalanced(payments ...FinancialInstrument) (bool, int64) {
 	}
 	missing := receivables - received
 	return missing <= 0, missing
+}
+
+// SponsorshipLevel defines the type that encapsulates the different sponsorship levels
+type SponsorshipLevel int
+
+// Scan converts from database to Go value
+func (s *SponsorshipLevel) Scan(src interface{}) error {
+	if src == nil {
+		*s = SponsorshipLevelNone
+		return nil
+	}
+	if iv, err := driver.String.ConvertValue(src); err == nil {
+		if v, ok := iv.([]byte); ok {
+			sv := string(v)
+			switch sv {
+			case "none":
+				*s = SponsorshipLevelNone
+				return nil
+			case "diamond":
+				*s = SponsorshipLevelDiamond
+				return nil
+			case "platinum":
+				*s = SponsorshipLevelPlatinum
+				return nil
+			case "gold":
+				*s = SponsorshipLevelGold
+				return nil
+			case "silver":
+				*s = SponsorshipLevelSilver
+				return nil
+			case "bronze":
+				*s = SponsorshipLevelBronze
+				return nil
+			default:
+				*s = SponsorshipLevelNone
+				return nil
+			}
+		}
+	}
+	// otherwise, return an error
+	return errors.New("failed to scan SponsorshipLevel")
+}
+
+// Value - Implementation of valuer for database/sql
+func (s SponsorshipLevel) Value() (driver.Value, error) {
+	// value needs to be a base driver.Value type
+	// such as bool.
+	return s.String(), nil
+}
+
+// These are the valid sponsorship levels
+// Not all of these may be used each year, for
+// example 2020 had no Diamonds
+const (
+	SponsorshipLevelNone = iota
+	SponsorshipLevelDiamond
+	SponsorshipLevelPlatinum
+	SponsorshipLevelGold
+	SponsorshipLevelSilver
+	SponsorshipLevelBronze
+	SponsorshipLevelOther
+)
+
+func (s SponsorshipLevel) String() string {
+	return []string{"none", "diamond", "platinum", "gold", "silver", "bronze", "other"}[s]
+}
+
+// Sponsor defines a conference sponsor, such as Google
+type Sponsor struct {
+	ID               uint32
+	Name             string
+	Address          string
+	Website          string
+	SponsorshipLevel SponsorshipLevel
+	Contacts         []SponsorContactInformation
+	ConferenceID     uint32
+}
+
+// ContactRole defines the type that encapsulates the different contact roles
+type ContactRole int
+
+// These are the valid contact roles
+const (
+	ContactRoleMarketing ContactRole = iota
+	ContactRoleLogistics
+	ContactRoleTechnical
+	ContactRoleOther
+	ContactRoleSoleContact
+)
+
+var contactRoleMappings = []string{"marketing", "logistics", "technical", "other", "sole_contact"}
+
+func (c ContactRole) String() string {
+	return contactRoleMappings[c]
+}
+
+// SponsorContactInformation defines a contact
+//and their information for a sponsor
+type SponsorContactInformation struct {
+	ID    uint32
+	Name  string
+	Role  ContactRole
+	Email string
+	Phone string
 }

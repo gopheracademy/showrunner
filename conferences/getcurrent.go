@@ -7,18 +7,19 @@ import (
 	"encore.dev/storage/sqldb"
 )
 
-// GetAllParams defines the inputs used by the GetAll API method
-type GetAllParams struct {
+// GetCurrentByEventParams defines the inputs used by the GetCurrentByEvent API method
+type GetCurrentByEventParams struct {
+	EventID uint32
 }
 
-// GetAllResponse defines the output returned by the GetAll API method
-type GetAllResponse struct {
-	Events []Event
+// GetCurrentByEventResponse defines the output returned by the GetCurrentByEvent API method
+type GetCurrentByEventResponse struct {
+	Event Event
 }
 
-// GetAll retrieves all conferences and events
+// GetCurrentByEvent retrieves the current conference and event information for a specific event
 // encore:api public
-func GetAll(ctx context.Context, params *GetAllParams) (*GetAllResponse, error) {
+func GetCurrentByEvent(ctx context.Context, params *GetCurrentByEventParams) (*GetCurrentByEventResponse, error) {
 
 	rows, err := sqldb.Query(ctx,
 		`SELECT event.id,
@@ -38,9 +39,10 @@ func GetAll(ctx context.Context, params *GetAllParams) (*GetAllResponse, error) 
 		 venue.capacity 
 		 FROM event 
 		 LEFT JOIN conference ON conference.event_id = event.id LEFT JOIN venue ON conference.venue_id = venue.id
-		`)
+		 WHERE event.id = $1 and conference.current = true
+		`, params.EventID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve all conferences: %w", err)
+		return nil, fmt.Errorf("failed to retrieve current conference: %w", err)
 	}
 
 	defer rows.Close()
@@ -80,13 +82,7 @@ func GetAll(ctx context.Context, params *GetAllParams) (*GetAllResponse, error) 
 		}
 	}
 
-	events := []Event{}
-
-	for _, event := range idToEvent {
-		events = append(events, *event)
-	}
-
-	return &GetAllResponse{
-		Events: events,
+	return &GetCurrentByEventResponse{
+		Event: *idToEvent[params.EventID],
 	}, nil
 }
