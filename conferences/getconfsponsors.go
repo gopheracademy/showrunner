@@ -22,8 +22,10 @@ type GetConferenceSponsorsResponse struct {
 // GetConferenceSponsors retrieves the sponsors for a specific conference
 // encore:api public
 func GetConferenceSponsors(ctx context.Context, params *GetConferenceSponsorsParams) (*GetConferenceSponsorsResponse, error) {
-	usr := auth.Data().(*Data)
-	log.Println(usr.UserID)
+	usr, ok := auth.Data().(*Data)
+	if ok {
+		log.Println(usr.UserID)
+	}
 
 	rows, err := sqldb.Query(ctx,
 		`SELECT sponsor.id,
