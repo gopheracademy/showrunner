@@ -36,7 +36,10 @@ export namespace conferences {
         /**
          * DependsOn means that these two Slots need to be acquired together, user must either buy
          * both Slots or pre-own one of the one it depends on.
-         * DependsOn *ConferenceSlot // Currently removed as it broke encore
+         */
+        DependsOn: number;
+
+        /**
          * PurchaseableFrom indicates when this item is on sale, for instance early bird tickets are the first
          * ones to go on sale.
          */
