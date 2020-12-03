@@ -4,6 +4,8 @@ import (
 	"database/sql/driver"
 	"errors"
 	"time"
+
+	"github.com/gofrs/uuid"
 )
 
 // Event is a brand like GopherCon
@@ -37,7 +39,7 @@ type ConferenceSlot struct {
 	EndDate     time.Time
 	// DependsOn means that these two Slots need to be acquired together, user must either buy
 	// both Slots or pre-own one of the one it depends on.
-	// DependsOn *ConferenceSlot // Currently removed as it broke encore
+	DependsOn uint32
 	// PurchaseableFrom indicates when this item is on sale, for instance early bird tickets are the first
 	// ones to go on sale.
 	PurchaseableFrom time.Time
@@ -72,6 +74,188 @@ type Location struct {
 	GoogleMapsURL string
 	Capacity      int
 	VenueID       uint32
+}
+
+// ClaimPayment represents a payment for N claims
+type ClaimPayment struct {
+	ID uint64
+	// ClaimsPaid would be what in a bill one see as detail.
+	ClaimsPaid []*SlotClaim
+	Payment    []FinancialInstrument
+	Invoice    string // let us fill this once we know how to invoice
+}
+
+// TotalDue returns the total cost to cover by this payment.
+func (c *ClaimPayment) TotalDue() int64 {
+	var totalDue int = 0
+	for _, sc := range c.ClaimsPaid {
+		totalDue = totalDue + sc.ConferenceSlot.Cost
+	}
+	return int64(totalDue)
+}
+
+// Fulfilled returns true if the payment of this invoice has been covered with either
+// money or credit
+func (c *ClaimPayment) Fulfilled() bool {
+	totalDue := c.TotalDue()
+	f, _ := paymentBalanced(totalDue, c.Payment...)
+	return f
+}
+
+// Paid returns true if the payment of this invoice has been fully paid.
+func (c *ClaimPayment) Paid() bool {
+	totalDue := c.TotalDue()
+	f, _ := paymentFulfilled(totalDue, c.Payment...)
+	b, _ := debtBalanced(c.Payment...)
+	return f && b
+}
+
+// SlotClaim represents one occupancy of one slot.
+type SlotClaim struct {
+	ID             int64
+	ConferenceSlot *ConferenceSlot
+	// TicketID should only be valid when combined with the correct Attendee ID/Email
+	TicketID uuid.UUID
+	// Redeemed represents whether this has been used (ie the Attendee enrolled in front desk
+	// or into the online conf system) until this is not true, transfer/refund might be possible.
+	Redeemed bool
+}
+
+// Attendee is a person attending one or more Slots of the Conference.
+type Attendee struct {
+	ID    int64
+	Email string
+	// CoCAccepted, claims cannot be used without this.
+	CoCAccepted bool
+	Claims      []SlotClaim
+}
+
+// Finance Section
+
+// PaymentMethodMoney represents a payment in cash.
+type PaymentMethodMoney struct {
+	ID          uint64
+	PaymentRef  string // stripe payment ID/Log?
+	AmountCents int64  // Money is handled in cents as it is done by our payment processor (stripe)
+}
+
+// Total implements FinancialInstrument
+func (p *PaymentMethodMoney) Total() int64 {
+	return p.AmountCents
+}
+
+// Type implements FinancialInstrument
+func (p *PaymentMethodMoney) Type() AssetType {
+	return ATCash
+}
+
+var _ FinancialInstrument = &PaymentMethodMoney{}
+
+// PaymentMethodConferenceDiscount represents a discount issued by the event.
+type PaymentMethodConferenceDiscount struct {
+	ID uint64
+	// Detail describes what kind of discount was issued (ie 100% sponsor, 30% grant)
+	Detail      string
+	AmountCents int64 // Money is handled in cents as it is done by our payment processor (stripe)
+}
+
+// Total implements FinancialInstrument
+func (p *PaymentMethodConferenceDiscount) Total() int64 {
+	return p.AmountCents
+}
+
+// Type implements FinancialInstrument
+func (p *PaymentMethodConferenceDiscount) Type() AssetType {
+	return ATDiscount
+}
+
+var _ FinancialInstrument = &PaymentMethodConferenceDiscount{}
+
+// PaymentMethodCreditNote represents credit extended to defer payment.
+type PaymentMethodCreditNote struct {
+	ID          uint64
+	Detail      string
+	AmountCents int64 // Money is handled in cents as it is done by our payment processor (stripe)
+}
+
+// Total implements FinancialInstrument
+func (p *PaymentMethodCreditNote) Total() int64 {
+	return p.AmountCents
+}
+
+// Type implements FinancialInstrument
+func (p *PaymentMethodCreditNote) Type() AssetType {
+	return ATReceivable
+}
+
+var _ FinancialInstrument = &PaymentMethodCreditNote{}
+
+// AssetType is a type of accounting asset.
+type AssetType string
+
+const (
+	// ATCash in this context means it is money, like a stripe payment
+	ATCash AssetType = "cash"
+	// ATReceivable in this context means it is a promise of payment
+	ATReceivable AssetType = "receivable"
+	// ATDiscount in this context means an issued discount (represented as a fixed amount for
+	// accounting's sake)
+	ATDiscount AssetType = "discount"
+)
+
+// FinancialInstrument represents any kind of instrument used to cover a debt.
+type FinancialInstrument interface {
+	// Total is the total amount fulfilled by this instrument
+	Total() int64
+	// Type is the type of asset represented
+	Type() AssetType
+}
+
+// paymentBalanced returns true or false depending on balancing status and missing
+// payment amount if any.
+func paymentBalanced(amount int64, payments ...FinancialInstrument) (bool, int64) {
+	var receivables int64 = 0
+	var received int64 = 0
+	for _, p := range payments {
+		switch p.Type() {
+		case ATCash, ATDiscount:
+			received += p.Total()
+		case ATReceivable:
+			receivables += p.Total()
+		}
+	}
+	missing := amount - received - receivables
+	return missing <= 0, missing
+}
+
+// paymentFulfilled returns true if the passed amount is covered in full.
+func paymentFulfilled(amount int64, payments ...FinancialInstrument) (bool, int64) {
+	var received int64 = 0
+	for _, p := range payments {
+		switch p.Type() {
+		case ATCash, ATDiscount:
+			received += p.Total()
+		}
+	}
+	missing := amount - received
+	return missing <= 0, missing
+}
+
+// debtBalanced returns true if all credit notes or similar instruments have been covered or an
+// amount if not.
+func debtBalanced(payments ...FinancialInstrument) (bool, int64) {
+	var receivables int64 = 0
+	var received int64 = 0
+	for _, p := range payments {
+		switch p.Type() {
+		case ATCash, ATDiscount:
+			received += p.Total()
+		case ATReceivable:
+			receivables += p.Total()
+		}
+	}
+	missing := receivables - received
+	return missing <= 0, missing
 }
 
 // SponsorshipLevel defines the type that encapsulates the different sponsorship levels
