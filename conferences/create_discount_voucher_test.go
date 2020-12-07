@@ -57,16 +57,18 @@ func TestCreateDiscountVoucher(t *testing.T) {
 	discount_amount_cents, 
 	valid_from, valid_to, 
 	conference_id, 
-	spent WHERE voucher_id = $1`, result.VoucherID)
+	spent
+	FROM discount_vouchers
+	WHERE voucher_id = $1`, result.VoucherID)
 		var spent bool
 		var validFrom, validTo time.Time
 		var discountAmountCents, discountMaxAmountCents int64
 		var conferenceID, discountPercentage int
-		if err := row.Scan(discountPercentage,
-			discountMaxAmountCents,
-			discountAmountCents, validFrom, validTo, conferenceID, spent,
+		if err := row.Scan(&discountPercentage,
+			&discountMaxAmountCents,
+			&discountAmountCents, &validFrom, &validTo, &conferenceID, &spent,
 		); err != nil {
-			t.Fatalf("could not scan discount back")
+			t.Fatalf("could not scan discount back: %v", err)
 		}
 		if spent {
 			t.Fatal("voucher is spent, should not be")
@@ -80,10 +82,10 @@ func TestCreateDiscountVoucher(t *testing.T) {
 		if discountMaxAmountCents != tcase.LimitInCents {
 			t.Fatalf("discount should be max %d cents it is %d", tcase.LimitInCents, discountMaxAmountCents)
 		}
-		if validFrom != tcase.ValidFrom {
+		if validFrom.Unix() != tcase.ValidFrom.Unix() {
 			t.Fatalf("voucher should be valid until %v but it is until %v", tcase.ValidFrom, validFrom)
 		}
-		if validTo != tcase.ValidTo {
+		if validTo.Unix() != tcase.ValidTo.Unix() {
 			t.Fatalf("voucher should be valid until %v but it is until %v", tcase.ValidTo, validTo)
 		}
 		if conferenceID != tcase.ConferenceID {

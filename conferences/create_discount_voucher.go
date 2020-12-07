@@ -60,13 +60,13 @@ func CreateDiscountVoucher(ctx context.Context, params *CreateDiscountVoucherPar
 (voucher_id, 
 	valid_from, 
 	valid_to, 
-	discount_percentage, 
+	discount_amount_cents, 
 	conference_id) 
 VALUES ($1, $2, $3, $4, $5)`,
 		voucherID,
 		params.VoucherInformation.ValidFrom,
 		params.VoucherInformation.ValidTo,
-		params.VoucherInformation.Percentage,
+		params.VoucherInformation.AmountInCents,
 		params.VoucherInformation.ConferenceID)
 	if err != nil {
 		return nil, fmt.Errorf("inserting fixed amount voucher into db: %w", err)
