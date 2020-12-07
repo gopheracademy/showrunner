@@ -8,7 +8,7 @@ import (
 	"encore.dev/storage/sqldb"
 )
 
-const validFromDateTimestamp = 1445444940 // October 21 2015 4:28pm
+const validFromDateTimestamp = 1445444940 // October 21 2015 4:28 pm
 
 func TestCreateDiscountVoucher(t *testing.T) {
 	ctx := context.Background()
