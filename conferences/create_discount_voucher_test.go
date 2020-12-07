@@ -10,7 +10,7 @@ import (
 
 const validFromDateTimestamp = 1445444940 // October 21 2015 4:28pm
 
-func TextCreateDiscountVoucher(t *testing.T) {
+func TestCreateDiscountVoucher(t *testing.T) {
 	ctx := context.Background()
 	_, err := CreateDiscountVoucher(ctx,
 		&CreateDiscountVoucherParams{
