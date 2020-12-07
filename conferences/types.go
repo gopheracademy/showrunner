@@ -361,3 +361,14 @@ type SponsorContactInformation struct {
 	Email string
 	Phone string
 }
+
+// VoucherInformation represents the necessary information to create a new discount
+// voucher.
+type VoucherInformation struct {
+	Percentage    int
+	LimitInCents  int64
+	AmountInCents int64
+	ValidFrom     time.Time
+	ValidTo       time.Time
+	ConferenceID  int
+}
