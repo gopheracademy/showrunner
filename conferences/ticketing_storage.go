@@ -160,6 +160,108 @@ func createConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSl
 	return &results, nil
 }
 
+// ErrSlotFull should be returned when a claim is attempted on a full slot.
+type ErrSlotFull struct {
+	claimFullID uint64
+}
+
+func (err *ErrSlotFull) Error() string {
+	return fmt.Sprintf("conference with slot %d is full", err.claimFullID)
+}
+
+// ErrDependencyUnmet should be returned when a claim is made that depends on another.
+type ErrDependencyUnmet struct {
+	missing uint64
+}
+
+func (err *ErrDependencyUnmet) Error() string {
+	return fmt.Sprintf("at least one claim dependeny was unmet, missing: %d", err.missing)
+}
+
+func ensureSlotsCanBeClaimed(ctx context.Context, claimIDs []uint64,
+	attendeeEmail string) error {
+	attendee, err := readAttendeeByEmail(ctx, nil, attendeeEmail)
+	if err != nil {
+		return fmt.Errorf("reading attendee to check slot validity: %w", err)
+	}
+	if attendee == nil {
+		return fmt.Errorf("no such attendee")
+	}
+	allClaims := claimIDs[:]
+	if attendee.Claims != nil {
+		for _, c := range attendee.Claims {
+			allClaims = append(allClaims, uint64(c.ID))
+		}
+	}
+	rows, err := sqldb.Query(ctx, `SELECT 
+	conference_slot.id
+	COUNT(slot_claim.id) < conference_slot.capacity,
+	conference_slot.depends_on IS NOT NULL,
+	conference_slot.depends_on = ANY($1),
+	COALESCE(conference_slot.depends_on, 0)
+	FROM slot_claim
+	JOIN slot_claim ON slot_claim.conference_slot_id=conference_slot.id
+	WHERE conference_slot.id = ANY($2) GROUP BY conference_slot.id`,
+		allClaims, allClaims)
+	if err != nil {
+		return fmt.Errorf("querying claim availability: %w", err)
+	}
+	for rows.Next() {
+		var slotID, dependsOn uint64
+		var capacityAvailable, hasDependency, dependencyMet bool
+		if err := rows.Scan(&slotID,
+			&capacityAvailable, &hasDependency, &dependencyMet,
+			&dependsOn); err != nil {
+			return fmt.Errorf("reding row from slot availability query: %w", err)
+		}
+		if !capacityAvailable {
+			return &ErrSlotFull{claimFullID: slotID}
+		}
+		if hasDependency && !dependencyMet {
+			return &ErrDependencyUnmet{missing: dependsOn}
+		}
+	}
+	return nil
+}
+func readConferenceSlotsByIDs(ctx context.Context, tx *sqldb.Tx, id []uint64) ([]ConferenceSlot, error) {
+	results := []ConferenceSlot{}
+	var rows *sqldb.Rows
+	var err error
+	sqlStatement := `SELECT id, name, description, cost, capacity, start_date, end_date, purchaseable_from, purchaseable_until, available_to_public, COALESCE(depends_on, 0)
+	FROM conference_slot 
+	WHERE id = $1`
+	sqlArgs := []interface{}{id}
+	if tx != nil {
+		rows, err = sqldb.QueryTx(tx, ctx, sqlStatement, sqlArgs...)
+	} else {
+		rows, err = sqldb.Query(ctx, sqlStatement, sqlArgs...)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("querying for conference slots: %w", err)
+	}
+
+	for rows.Next() {
+		result := ConferenceSlot{}
+		err := rows.Scan(&result.ID,
+			&result.Name,
+			&result.Description,
+			&result.Cost,
+			&result.Capacity,
+			&result.StartDate,
+			&result.EndDate,
+			&result.PurchaseableFrom,
+			&result.PurchaseableUntil,
+			&result.AvailableToPublic,
+			&result.DependsOn)
+
+		if err != nil {
+			return nil, fmt.Errorf("reading conference slots by id: %w", err)
+		}
+		results = append(results, result)
+	}
+	return results, nil
+}
+
 func readConferenceSlotByID(ctx context.Context, tx *sqldb.Tx, id uint64, loadDeps bool) (*ConferenceSlot, error) {
 	results := ConferenceSlot{}
 	var row *sqldb.Row
