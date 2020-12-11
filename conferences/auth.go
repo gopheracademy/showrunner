@@ -8,7 +8,6 @@ import (
 	"encore.dev/beta/auth"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/dgrijalva/jwt-go"
-	"golang.org/x/oauth2"
 )
 
 var secrets struct {
@@ -40,34 +39,13 @@ func VerifyToken(ctx context.Context, token string) (auth.UID, *Data, error) {
 		log.Println("provider create error", err)
 		return "", nil, err
 	}
-	log.Println(token)
-	var i info
-	err = json.Unmarshal([]byte(token), &i)
-
-	if err != nil {
-		log.Println("unmarshal token data struct", err)
-		return "", nil, err
-	}
 	var verifier = provider.Verifier(&oidc.Config{ClientID: "0oa26dc0cgcjzHwsJ5d6"})
-	idtok, err := verifier.Verify(ctx, i.IDToken)
+	_, err = verifier.Verify(ctx, token)
 	if err != nil {
 		log.Println("verify token error: ", err)
 		return "", nil, err
 	}
-	log.Println("idtok", idtok)
-	var oidcToken oauth2.Token
-	oidcToken.AccessToken = string(i.AuthToken)
-	oidcToken.TokenType = "Bearer"
-
-	ui, err := provider.UserInfo(ctx, oauth2.StaticTokenSource(&oidcToken))
-	if err != nil {
-		log.Println("user info error:", err)
-		return "", nil, err
-	}
-
-	log.Println("ui", ui)
 	var d Data
-	ui.Claims(&d)
 	//TODO: actually validate things from the token/claims
 	//return auth.UID(d.UserID), d, nil
 	return "", &d, nil
