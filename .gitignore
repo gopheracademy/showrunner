@@ -15,4 +15,7 @@
 # vendor/
 
 # Encore folder
+.encore.envrc
 .encore
+.envrc
+signingkeys.txt
