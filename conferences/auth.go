@@ -40,7 +40,7 @@ func VerifyToken(ctx context.Context, token string) (auth.UID, *Data, error) {
 		return "", nil, err
 	}
 	var verifier = provider.Verifier(&oidc.Config{ClientID: "0oa26dc0cgcjzHwsJ5d6"})
-	_, err = verifier.Verify(ctx, token)
+	idt, err := verifier.Verify(ctx, token)
 	if err != nil {
 		log.Println("verify token error: ", err)
 		return "", nil, err
@@ -48,7 +48,7 @@ func VerifyToken(ctx context.Context, token string) (auth.UID, *Data, error) {
 	var d Data
 	//TODO: actually validate things from the token/claims
 	//return auth.UID(d.UserID), d, nil
-	return "", &d, nil
+	return auth.UID(idt.Subject), &d, nil
 }
 
 func mapClaims(values jwt.MapClaims) *Data {
