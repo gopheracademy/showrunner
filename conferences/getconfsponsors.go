@@ -3,9 +3,7 @@ package conferences
 import (
 	"context"
 	"fmt"
-	"log"
 
-	"encore.dev/beta/auth"
 	"encore.dev/storage/sqldb"
 )
 
@@ -22,16 +20,12 @@ type GetConferenceSponsorsResponse struct {
 // GetConferenceSponsors retrieves the sponsors for a specific conference
 // encore:api public
 func GetConferenceSponsors(ctx context.Context, params *GetConferenceSponsorsParams) (*GetConferenceSponsorsResponse, error) {
-	usr, ok := auth.Data().(*Data)
-	if ok {
-		log.Println(usr.UserID)
-	}
 
 	rows, err := sqldb.Query(ctx,
 		`SELECT sponsor.id,
 		 sponsor.name,
 		 sponsor.sponsorship_level
-		 FROM sponsor 
+		 FROM sponsor
 		 WHERE sponsor.conference_id = $1
 		`, params.ConferenceID)
 	if err != nil {
