@@ -24,7 +24,7 @@ INSERT INTO users (
 
 INSERT INTO paper_submission (
   user_id,
-  confere_id,
+  conference_id,
   title,
   elevator_pitch,
   description,
@@ -40,7 +40,7 @@ INSERT INTO paper_submission (
 
 INSERT INTO paper_submission (
   user_id,
-  confere_id,
+  conference_id,
   title,
   elevator_pitch,
   description,
@@ -56,7 +56,7 @@ INSERT INTO paper_submission (
 
 INSERT INTO paper_submission (
   user_id,
-  confere_id,
+  conference_id,
   title,
   elevator_pitch,
   description,
@@ -72,7 +72,7 @@ INSERT INTO paper_submission (
 
 INSERT INTO paper_submission (
   user_id,
-  confere_id,
+  conference_id,
   title,
   elevator_pitch,
   description,
