@@ -128,6 +128,7 @@ func Test_claimSlots(t *testing.T) {
 					t.Fatalf("retrieving new ticket IDs %v", err)
 					return
 				}
+				defer rows.Close()
 
 				for i := len(tt.want[attendee]) - 1; i >= 0; i-- {
 					if !rows.Next() {
@@ -140,7 +141,7 @@ func Test_claimSlots(t *testing.T) {
 						return
 					}
 				}
-				rows.Close()
+
 				if !reflect.DeepEqual(got, tt.want[attendee]) {
 					t.Errorf("claimSlots() = %v, want %v", got, tt.want[attendee])
 				}

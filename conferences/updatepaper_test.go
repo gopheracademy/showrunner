@@ -63,4 +63,58 @@ func TestUpdatePaperSubmission(t *testing.T) {
 			t.Errorf("notes was not updated got %v want %v", result.Paper.Notes, originalPaper.Notes)
 		}
 	})
+
+	t.Run("checks a user can update some of their proposal", func(t *testing.T) {
+
+		originalPaper := &Paper{
+			UserID:        "test_user_2",
+			ConferenceID:  2,
+			Title:         "Go ahead with Go",
+			ElevatorPitch: "Why you should code in Go",
+			Description:   "Because the mascot is the best",
+			Notes:         "It comes in all shapes and sizes",
+		}
+
+		ctx := context.Background()
+		_, err := AddPaper(ctx, &AddPaperParams{
+			Paper: originalPaper,
+		},
+		)
+		if err != nil {
+			t.Fatalf("unexpected database error: %v", err)
+		}
+
+		updatedPaper := *originalPaper
+
+		updatedPaper.Title = "Get Great with Go"
+		updatedPaper.Notes = "Target audience: New Gophers"
+
+		result, err := UpdatePaper(ctx, &UpdatePaperParams{Paper: &updatedPaper})
+
+		if err != nil {
+			t.Fatalf("unexpected database error: %v", err)
+		}
+
+		if result.Paper.UserID != originalPaper.UserID {
+			t.Errorf("UserID was unexpectedly updated got %v want %v", result.Paper.UserID, originalPaper.UserID)
+		}
+
+		if result.Paper.Title == originalPaper.Title {
+			t.Errorf("title was not updated got %v want %v", result.Paper.UserID, originalPaper.UserID)
+		}
+
+		if result.Paper.ElevatorPitch != originalPaper.ElevatorPitch {
+			t.Errorf("elevator pitch was not updated got %v want %v", result.Paper.ElevatorPitch, originalPaper.ElevatorPitch)
+		}
+
+		if result.Paper.Description != originalPaper.Description {
+			t.Errorf("description was not updated got %v want %v", result.Paper.Description, originalPaper.Description)
+		}
+
+		if result.Paper.Notes == originalPaper.Notes {
+			t.Errorf("notes was not updated got %v want %v", result.Paper.Notes, originalPaper.Notes)
+		}
+
+	})
+
 }
