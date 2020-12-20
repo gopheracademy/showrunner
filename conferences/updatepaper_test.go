@@ -76,7 +76,7 @@ func TestUpdatePaperSubmission(t *testing.T) {
 		}
 
 		ctx := context.Background()
-		_, err := AddPaper(ctx, &AddPaperParams{
+		response, err := AddPaper(ctx, &AddPaperParams{
 			Paper: originalPaper,
 		},
 		)
@@ -86,6 +86,7 @@ func TestUpdatePaperSubmission(t *testing.T) {
 
 		updatedPaper := *originalPaper
 
+		updatedPaper.ID = response.PaperID
 		updatedPaper.Title = "Get Great with Go"
 		updatedPaper.Notes = "Target audience: New Gophers"
 
@@ -114,7 +115,5 @@ func TestUpdatePaperSubmission(t *testing.T) {
 		if result.Paper.Notes == originalPaper.Notes {
 			t.Errorf("notes was not updated got %v want %v", result.Paper.Notes, originalPaper.Notes)
 		}
-
 	})
-
 }
