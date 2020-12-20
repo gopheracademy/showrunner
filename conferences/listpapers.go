@@ -7,12 +7,12 @@ import (
 	"encore.dev/storage/sqldb"
 )
 
-// ListPaperParams defines the inputs used by the ListPapers API method
+// ListPapersParams defines the inputs used by the ListPapers API method
 type ListPapersParams struct {
 	ConferenceID uint32
 }
 
-// ListPapersResponse defines the output return by hte ListPapers API method
+// ListPapersResponse defines the output returned by the ListPapers API method
 type ListPapersResponse struct {
 	Papers []Paper
 }

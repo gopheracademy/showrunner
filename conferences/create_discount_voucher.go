@@ -34,13 +34,13 @@ func CreateDiscountVoucher(ctx context.Context, params *CreateDiscountVoucherPar
 	}
 	if params.VoucherInformation.Percentage > 0 {
 		_, err = sqldb.Exec(ctx,
-			`INSERT INTO discount_vouchers 
-	(voucher_id, 
-		valid_from, 
-		valid_to, 
-		discount_percentage, 
-		discount_percentage_max_amount_cents, 
-		conference_id) 
+			`INSERT INTO discount_vouchers
+	(voucher_id,
+		valid_from,
+		valid_to,
+		discount_percentage,
+		discount_percentage_max_amount_cents,
+		conference_id)
 	VALUES ($1, $2, $3, $4, $5, $6)`,
 			voucherID,
 			params.VoucherInformation.ValidFrom,
@@ -56,12 +56,12 @@ func CreateDiscountVoucher(ctx context.Context, params *CreateDiscountVoucherPar
 		}, nil
 	}
 	_, err = sqldb.Exec(ctx,
-		`INSERT INTO discount_vouchers 
-(voucher_id, 
-	valid_from, 
-	valid_to, 
-	discount_amount_cents, 
-	conference_id) 
+		`INSERT INTO discount_vouchers
+(voucher_id,
+	valid_from,
+	valid_to,
+	discount_amount_cents,
+	conference_id)
 VALUES ($1, $2, $3, $4, $5)`,
 		voucherID,
 		params.VoucherInformation.ValidFrom,
