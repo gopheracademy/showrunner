@@ -12,7 +12,7 @@ type GetPaperParams struct {
 	PaperID uint32
 }
 
-// GetPaperResponse defines the output returned by the GetPaperResponse API method
+// GetPaperResponse defines the output returned by the GetPaper API method
 type GetPaperResponse struct {
 	Paper Paper
 }

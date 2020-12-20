@@ -30,7 +30,7 @@ func TestAddPaperRoundTrip(t *testing.T) {
 		result, err := GetPaper(ctx, &GetPaperParams{PaperID: response.PaperID})
 
 		if err != nil {
-			t.Fatalf("undexpected database error: %v", err)
+			t.Fatalf("unexpected database error: %v", err)
 		}
 
 		if result.Paper.UserID != paper.UserID {
