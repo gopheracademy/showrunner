@@ -40,7 +40,8 @@ func UpdateJob(ctx context.Context, params *UpdateJobParams) (*UpdateJobResponse
 		description,
 		link,
 		discord,
-		rank
+		rank,
+		approved
 	`, params.Job.CompanyName, params.Job.Title, params.Job.Description, params.Job.Link, params.Job.Discord, params.Job.Rank, params.Job.ID)
 
 	var job Job
@@ -52,6 +53,7 @@ func UpdateJob(ctx context.Context, params *UpdateJobParams) (*UpdateJobResponse
 		&job.Link,
 		&job.Discord,
 		&job.Rank,
+		&job.Approved,
 	)
 
 	if err != nil {

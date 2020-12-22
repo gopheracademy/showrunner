@@ -30,7 +30,8 @@ func GetJob(ctx context.Context, params *GetJobParams) (*GetJobResponse, error) 
 		description,
 		link,
 		discord,
-		rank
+		rank,
+		approved
 		FROM job_board
 		WHERE id = $1
 		`,
@@ -47,6 +48,7 @@ func GetJob(ctx context.Context, params *GetJobParams) (*GetJobResponse, error) 
 		&job.Link,
 		&job.Discord,
 		&job.Rank,
+		&job.Approved,
 	)
 
 	if err != nil {

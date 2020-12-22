@@ -14,6 +14,7 @@ func TestUpdateJob(t *testing.T) {
 		Link:        "Uni.corn/Job",
 		Discord:     "https://discord.gg/unicorn",
 		Rank:        3,
+		Approved:    true,
 	}
 
 	ctx := context.Background()
@@ -33,6 +34,7 @@ func TestUpdateJob(t *testing.T) {
 		Link:        "Uni.corn/Job",
 		Discord:     "https://discord.gg/unicorn",
 		Rank:        1,
+		Approved:    true,
 	}
 
 	result, err := UpdateJob(ctx, &UpdateJobParams{Job: updatedJob})

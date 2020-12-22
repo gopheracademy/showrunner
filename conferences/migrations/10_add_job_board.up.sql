@@ -7,7 +7,8 @@ title TEXT NOT NULL,
 description TEXT NOT NULL,
 link TEXT NOT NULL,
 discord TEXT NOT NULL,
-rank INT NOT NULL
+rank INT NOT NULL,
+approved BOOLEAN DEFAULT FALSE
 );
 
 INSERT INTO job_board(
@@ -16,14 +17,16 @@ INSERT INTO job_board(
   description,
   link,
   discord,
-  rank
+  rank,
+  approved
 ) VALUES (
   'Skynet',
   'T1000 Engineer',
   'Assisting the robot takeover',
   'https://skynet.io/terminator',
   'https://discord.gg/termi-time',
-  1
+  1,
+  TRUE
 );
 
 INSERT INTO job_board(

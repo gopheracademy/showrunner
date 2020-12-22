@@ -42,7 +42,8 @@ func CreateJob(ctx context.Context, params *CreateJobParams) (*CreateJobResponse
 			description,
 			link,
 			discord,
-			rank`,
+			rank,
+			approved`,
 		params.Job.CompanyName,
 		params.Job.Title,
 		params.Job.Description,
@@ -60,6 +61,7 @@ func CreateJob(ctx context.Context, params *CreateJobParams) (*CreateJobResponse
 		&job.Link,
 		&job.Discord,
 		&job.Rank,
+		&job.Approved,
 	)
 
 	if err != nil {

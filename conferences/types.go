@@ -382,4 +382,5 @@ type Job struct {
 	Link        string
 	Discord     string
 	Rank        int
+	Approved    bool
 }
