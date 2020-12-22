@@ -18,6 +18,7 @@ type GetJobResponse struct {
 }
 
 // GetJob retrieves a job posting by JobID
+// encore:api public
 func GetJob(ctx context.Context, params *GetJobParams) (*GetJobResponse, error) {
 
 	row := sqldb.QueryRow(
@@ -32,7 +33,8 @@ func GetJob(ctx context.Context, params *GetJobParams) (*GetJobResponse, error) 
 		rank
 		FROM job_board
 		WHERE id = $1
-		`, params.JobID,
+		`,
+		params.JobID,
 	)
 
 	var job Job
