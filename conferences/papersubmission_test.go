@@ -38,7 +38,7 @@ func TestAddPaperRoundTrip(t *testing.T) {
 		}
 
 		if result.Paper.Title != paper.Title {
-			t.Errorf("incorrect title returned got %v want %v", result.Paper.UserID, paper.UserID)
+			t.Errorf("incorrect title returned got %v want %v", result.Paper.Title, paper.Title)
 		}
 
 		if result.Paper.ElevatorPitch != paper.ElevatorPitch {
