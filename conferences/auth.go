@@ -4,11 +4,24 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"encore.dev/beta/auth"
 	"encore.dev/storage/sqldb"
 	"github.com/coreos/go-oidc/v3/oidc"
 )
+
+// User is a person who interacts with the system
+type User struct {
+	ID             uint32
+	Email          string
+	CoCAccepted    bool
+	HashedPassword string
+	GivenName      string
+	FamilyName     string
+	CreatedAt      time.Time
+	Claims         []SlotClaim
+}
 
 // VerifyToken accepts a JWT token and returns a UserID, or an error.
 // Return a zero-value UID for Unauthorized, return a non-nil error for a 500 error

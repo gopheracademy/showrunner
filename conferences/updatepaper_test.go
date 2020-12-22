@@ -3,14 +3,27 @@ package conferences
 import (
 	"context"
 	"testing"
+
+	"encore.dev/storage/sqldb"
 )
 
 func TestUpdatePaperSubmission(t *testing.T) {
 
 	t.Run("checks that a user can update all fields in their proposal", func(t *testing.T) {
-
+		tx, err := sqldb.Begin(context.TODO())
+		if err != nil {
+			t.Fatalf("beginning transaction: %v", err)
+		}
+		att01 := &User{
+			Email:       "testmail01@gophercon.com",
+			CoCAccepted: true,
+		}
+		savedAttendee01, err := createAttendee(context.TODO(), tx, att01)
+		if err := sqldb.Commit(tx); err != nil {
+			t.Fatalf("committing test setup transaction: %v", err)
+		}
 		originalPaper := &Paper{
-			UserID:        "test_user_1",
+			UserID:        savedAttendee01.ID,
 			ConferenceID:  1,
 			Title:         "Test title",
 			ElevatorPitch: "Elevating elevator pitch",
@@ -29,7 +42,7 @@ func TestUpdatePaperSubmission(t *testing.T) {
 
 		updatedPaper := &Paper{
 			ID:            response.PaperID,
-			UserID:        "test_user_1",
+			UserID:        savedAttendee01.ID,
 			ConferenceID:  1,
 			Title:         "Can anyone code?",
 			ElevatorPitch: "Is anyone capeable of coding? Lets discuss",
@@ -65,9 +78,20 @@ func TestUpdatePaperSubmission(t *testing.T) {
 	})
 
 	t.Run("checks a user can update some of their proposal", func(t *testing.T) {
-
+		tx, err := sqldb.Begin(context.TODO())
+		if err != nil {
+			t.Fatalf("beginning transaction: %v", err)
+		}
+		att02 := &User{
+			Email:       "testmail02@gophercon.com",
+			CoCAccepted: true,
+		}
+		savedAttendee02, err := createAttendee(context.TODO(), tx, att02)
+		if err := sqldb.Commit(tx); err != nil {
+			t.Fatalf("committing test setup transaction: %v", err)
+		}
 		originalPaper := &Paper{
-			UserID:        "test_user_2",
+			UserID:        savedAttendee02.ID,
 			ConferenceID:  2,
 			Title:         "Go ahead with Go",
 			ElevatorPitch: "Why you should code in Go",

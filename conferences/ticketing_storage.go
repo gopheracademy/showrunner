@@ -11,9 +11,9 @@ import (
 )
 
 // createAttendee creates a new attendee in the database and returns it.
-func createAttendee(ctx context.Context, tx *sqldb.Tx, a *Attendee) (*Attendee, error) {
-	result := Attendee{}
-	sqlStatement := "INSERT INTO attendee (email, coc_accepted) VALUES ($1, $2) RETURNING id, email, coc_accepted"
+func createAttendee(ctx context.Context, tx *sqldb.Tx, a *User) (*User, error) {
+	result := User{}
+	sqlStatement := "INSERT INTO users (email, coc_accepted) VALUES ($1, $2) RETURNING id, email, coc_accepted"
 	sqlArgs := []interface{}{a.Email, a.CoCAccepted}
 	var row *sqldb.Row
 
@@ -23,14 +23,14 @@ func createAttendee(ctx context.Context, tx *sqldb.Tx, a *Attendee) (*Attendee, 
 		row = sqldb.QueryRow(ctx, sqlStatement, sqlArgs...)
 	}
 	if err := row.Scan(&result.ID, &result.Email, &result.CoCAccepted); err != nil {
-		return nil, fmt.Errorf("creating or fetching attendee: %w", err)
+		return nil, fmt.Errorf("creating or fetching user: %w", err)
 	}
 
 	return &result, nil
 }
 
 // readAttendeeByEmail returns an attendee for that email if one exists.
-func readAttendeeByEmail(ctx context.Context, tx *sqldb.Tx, email string) (*Attendee, error) {
+func readAttendeeByEmail(ctx context.Context, tx *sqldb.Tx, email string) (*User, error) {
 	if email == "" {
 		return nil, fmt.Errorf("email is empty")
 	}
@@ -38,28 +38,28 @@ func readAttendeeByEmail(ctx context.Context, tx *sqldb.Tx, email string) (*Atte
 }
 
 // readAttendeeByID returns an attendee for the given ID if one exists.
-func readAttendeeByID(ctx context.Context, tx *sqldb.Tx, id int64) (*Attendee, error) {
+func readAttendeeByID(ctx context.Context, tx *sqldb.Tx, id uint32) (*User, error) {
 	if id == 0 {
 		return nil, fmt.Errorf("id is not valid")
 	}
 	return readAttendee(ctx, tx, "", id)
 }
 
-func readAttendee(ctx context.Context, tx *sqldb.Tx, email string, id int64) (*Attendee, error) {
-	results := Attendee{}
-	sqlStatement := `SELECT id, email, coc_accepted FROM attendee`
+func readAttendee(ctx context.Context, tx *sqldb.Tx, email string, id uint32) (*User, error) {
+	results := User{}
+	sqlStatement := `SELECT id, email, coc_accepted FROM users`
 	sqlArgs := []interface{}{}
 	switch {
 	case email != "":
-		sqlStatement = `SELECT id, email, coc_accepted FROM attendee WHERE email = $1`
+		sqlStatement = `SELECT id, email, coc_accepted FROM users WHERE email = $1`
 		sqlArgs = append(sqlArgs, email)
 
 	case email != "" && id != 0:
-		sqlStatement = `SELECT id, email, coc_accepted FROM attendee WHERE email = $1 AND id = $2`
+		sqlStatement = `SELECT id, email, coc_accepted FROM users WHERE email = $1 AND id = $2`
 		sqlArgs = append(sqlArgs, email, id)
 
 	case email == "" && id != 0:
-		sqlStatement = `SELECT id, email, coc_accepted FROM attendee WHERE id = $1`
+		sqlStatement = `SELECT id, email, coc_accepted FROM users WHERE id = $1`
 		sqlArgs = append(sqlArgs, id)
 	default:
 		return nil, errors.New("either email or ID has to be set")
@@ -84,7 +84,7 @@ func readAttendee(ctx context.Context, tx *sqldb.Tx, email string, id int64) (*A
 	claims := []SlotClaim{}
 
 	sqlStatement = `SELECT id, ticket_id, redeemed FROM slot_claim
-	WHERE attendee_id = $1`
+	WHERE user_id = $1`
 	sqlArgs = []interface{}{results.ID}
 	var rows *sqldb.Rows
 
@@ -254,11 +254,11 @@ func updateConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSl
 }
 
 // createSlotClaim saves a slot claim and returns it with the populated ID
-func createSlotClaim(ctx context.Context, tx *sqldb.Tx, slotClaim *SlotClaim, attendeeID int64) (*SlotClaim, error) {
+func createSlotClaim(ctx context.Context, tx *sqldb.Tx, slotClaim *SlotClaim, attendeeID uint32) (*SlotClaim, error) {
 	var err error
 
 	// TODO: add a dynamic field that sets the user as waitlist if slot is claimed.
-	sqlStatement := `INSERT INTO slot_claim (ticket_id, redeemed, conference_slot_id, attendee_id) VALUES ($1, $2, $3, $4)
+	sqlStatement := `INSERT INTO slot_claim (ticket_id, redeemed, conference_slot_id, user_id) VALUES ($1, $2, $3, $4)
 		RETURNING id, ticket_id, redeemed`
 	sqlArgs := []interface{}{slotClaim.TicketID, slotClaim.Redeemed, slotClaim.ConferenceSlot.ID, attendeeID}
 
@@ -282,8 +282,8 @@ func createSlotClaim(ctx context.Context, tx *sqldb.Tx, slotClaim *SlotClaim, at
 }
 
 // updateAttendee saves the passed attendee attributes on top of the existing one.
-func updateAttendee(ctx context.Context, tx *sqldb.Tx, attendee *Attendee) (*Attendee, error) {
-	sqlStatement := `UPDATE attendee SET email = $1, coc_accepted = $2 WHERE id = $3`
+func updateAttendee(ctx context.Context, tx *sqldb.Tx, attendee *User) (*User, error) {
+	sqlStatement := `UPDATE users SET email = $1, coc_accepted = $2 WHERE id = $3`
 	sqlArgs := []interface{}{attendee.Email, attendee.CoCAccepted, attendee.ID}
 	var res sql.Result
 	var err error
@@ -310,7 +310,7 @@ func updateAttendee(ctx context.Context, tx *sqldb.Tx, attendee *Attendee) (*Att
 	}
 
 	sqlStatement = `UPDATE slot_claim SET
-	attendee_id = $1
+	user_id = $1
 	WHERE id = ANY($2)
 	`
 	sqlArgs = []interface{}{attendee.ID, claimIDs}
@@ -533,7 +533,7 @@ func updateClaimPayment(ctx context.Context, tx *sqldb.Tx, c *ClaimPayment) (*Cl
 }
 
 // changeSlotClaimOwner changes the passed claims owner from source to target
-func changeSlotClaimOwner(ctx context.Context, tx *sqldb.Tx, slots []SlotClaim, source *Attendee, target *Attendee) (*Attendee, *Attendee, error) {
+func changeSlotClaimOwner(ctx context.Context, tx *sqldb.Tx, slots []SlotClaim, source *User, target *User) (*User, *User, error) {
 	if source == nil || target == nil {
 		return nil, nil, fmt.Errorf("either source or target is undefined")
 	}
@@ -556,7 +556,7 @@ func changeSlotClaimOwner(ctx context.Context, tx *sqldb.Tx, slots []SlotClaim, 
 		claimIDsIndex[slot.ID] = true
 	}
 
-	sqlStatement := `UPDATE slot_claim SET attendee_id = $1 WHERE attendee_id = $2 AND id = ANY($3)`
+	sqlStatement := `UPDATE slot_claim SET user_id = $1 WHERE user_id = $2 AND id = ANY($3)`
 	sqlArgs := []interface{}{target.ID, source.ID, pq.Int64Array(claimIDs)}
 
 	var res sql.Result

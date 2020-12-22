@@ -121,15 +121,6 @@ type SlotClaim struct {
 	Redeemed bool
 }
 
-// Attendee is a person attending one or more Slots of the Conference.
-type Attendee struct {
-	ID    int64
-	Email string
-	// CoCAccepted, claims cannot be used without this.
-	CoCAccepted bool
-	Claims      []SlotClaim
-}
-
 // Finance Section
 
 // PaymentMethodMoney represents a payment in cash.
