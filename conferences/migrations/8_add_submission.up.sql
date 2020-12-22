@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE TABLE paper_submission(
   id SERIAL PRIMARY KEY,
-  user_id TEXT NOT NULL REFERENCES users(id),
+  user_id SERIAL NOT NULL REFERENCES users(id),
   conference_id SERIAL NOT NULL REFERENCES conference(id),
   title TEXT NOT NULL,
   elevator_pitch TEXT NOT NULL,
@@ -10,17 +10,6 @@ CREATE TABLE paper_submission(
   notes TEXT NOT NULL
 );
 
-INSERT INTO users (
-  id
-) VALUES (
-  'test_user_1'
-);
-
-INSERT INTO users (
-  id
-) VALUES (
-  'test_user_2'
-);
 
 INSERT INTO paper_submission (
   user_id,
@@ -30,7 +19,7 @@ INSERT INTO paper_submission (
   description,
   notes
 ) VALUES (
-  'test_user_1',
+  1,
   1,
   'The ABCs: Always Be Coding',
   'Taking the world of warcraft mantra, Always Be Casting, into the world of coding.',
@@ -46,7 +35,7 @@ INSERT INTO paper_submission (
   description,
   notes
 ) VALUES (
-  'test_user_2',
+  2,
   1,
   'Putting the g, in gRPC',
   'Naming is important in coding, it shows intention.',
@@ -62,7 +51,7 @@ INSERT INTO paper_submission (
   description,
   notes
 ) VALUES (
-  'test_user_2',
+  2,
   2,
   'Do Cats Make Humans Better Engineers?',
   'Cats claim they increase stress relief by 900%',
@@ -78,7 +67,7 @@ INSERT INTO paper_submission (
   description,
   notes
 ) VALUES (
-  'test_user_1',
+  1,
   2,
   'Init functions: not even once',
   'We all know about the humble init function, but did you know its considered bad practice to use it?',

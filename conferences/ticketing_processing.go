@@ -9,7 +9,7 @@ import (
 )
 
 // claimSlots claims N slots for an attendee.
-func claimSlots(ctx context.Context, attendee *Attendee, slots []ConferenceSlot) ([]SlotClaim, error) {
+func claimSlots(ctx context.Context, attendee *User, slots []ConferenceSlot) ([]SlotClaim, error) {
 	tx, err := sqldb.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start transaction: %w", err)
@@ -50,7 +50,7 @@ func claimSlots(ctx context.Context, attendee *Attendee, slots []ConferenceSlot)
 }
 
 // payClaims assigns payments and/or credits to a set of claims.
-func payClaims(ctx context.Context, attendee *Attendee, claims []SlotClaim,
+func payClaims(ctx context.Context, attendee *User, claims []SlotClaim,
 	payments []FinancialInstrument) (*ClaimPayment, error) {
 	ptrClaims := make([]*SlotClaim, len(claims))
 	for i := range claims {
@@ -121,7 +121,7 @@ func coverCredit(ctx context.Context,
 
 // transferClaims transfer claims from one user the the other, assuming they belong to the first.
 func transferClaims(ctx context.Context,
-	source, target *Attendee, claims []SlotClaim) (*Attendee, *Attendee, error) {
+	source, target *User, claims []SlotClaim) (*User, *User, error) {
 	var err error
 	sourceClaimsMap := map[int64]bool{}
 	for _, claim := range source.Claims {

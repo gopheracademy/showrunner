@@ -12,14 +12,14 @@ import (
 func Test_claimSlots(t *testing.T) {
 	type args struct {
 		ctx   context.Context
-		slots map[*Attendee][]ConferenceSlot
+		slots map[*User][]ConferenceSlot
 	}
 
 	tx, err := sqldb.Begin(context.TODO())
 	if err != nil {
 		t.Fatalf("beginning transaction: %v", err)
 	}
-	att01 := &Attendee{
+	att01 := &User{
 		Email:       "testmail01@gophercon.com",
 		CoCAccepted: true,
 	}
@@ -28,7 +28,7 @@ func Test_claimSlots(t *testing.T) {
 		t.Fatalf("creating attendee: %v", err)
 	}
 
-	att02 := &Attendee{
+	att02 := &User{
 		Email:       "testmail02@gophercon.com",
 		CoCAccepted: true,
 	}
@@ -58,16 +58,16 @@ func Test_claimSlots(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    map[*Attendee][]SlotClaim
-		wantErr map[*Attendee]bool
+		want    map[*User][]SlotClaim
+		wantErr map[*User]bool
 	}{
 		{
 			name: "claim admission to general event",
 			args: args{
 				ctx:   context.TODO(),
-				slots: map[*Attendee][]ConferenceSlot{savedAttendee01: {*cslot}},
+				slots: map[*User][]ConferenceSlot{savedAttendee01: {*cslot}},
 			},
-			want: map[*Attendee][]SlotClaim{savedAttendee01: {
+			want: map[*User][]SlotClaim{savedAttendee01: {
 				{
 					ID:             1,
 					ConferenceSlot: cslot,
@@ -76,7 +76,7 @@ func Test_claimSlots(t *testing.T) {
 				},
 			},
 			},
-			wantErr: map[*Attendee]bool{
+			wantErr: map[*User]bool{
 				savedAttendee01: false,
 			},
 		},
@@ -84,12 +84,12 @@ func Test_claimSlots(t *testing.T) {
 			name: "claim more admission to general event",
 			args: args{
 				ctx: context.TODO(),
-				slots: map[*Attendee][]ConferenceSlot{
+				slots: map[*User][]ConferenceSlot{
 					savedAttendee02: {*cslot},
 					savedAttendee03: {*cslot},
 				},
 			},
-			want: map[*Attendee][]SlotClaim{
+			want: map[*User][]SlotClaim{
 				savedAttendee02: {
 					{
 						ID:             2,
@@ -107,7 +107,7 @@ func Test_claimSlots(t *testing.T) {
 					},
 				},
 			},
-			wantErr: map[*Attendee]bool{
+			wantErr: map[*User]bool{
 				savedAttendee02: false,
 				savedAttendee03: false},
 		},
@@ -123,11 +123,12 @@ func Test_claimSlots(t *testing.T) {
 					return
 				}
 
-				rows, err := sqldb.Query(context.TODO(), "SELECT id, ticket_id FROM slot_claim WHERE attendee_id = $1 ORDER BY id DESC", attendee.ID)
+				rows, err := sqldb.Query(context.TODO(), "SELECT id, ticket_id FROM slot_claim WHERE user_id = $1 ORDER BY id DESC", attendee.ID)
 				if err != nil {
 					t.Fatalf("retrieving new ticket IDs %v", err)
 					return
 				}
+				defer rows.Close()
 
 				for i := len(tt.want[attendee]) - 1; i >= 0; i-- {
 					if !rows.Next() {
@@ -140,7 +141,7 @@ func Test_claimSlots(t *testing.T) {
 						return
 					}
 				}
-				rows.Close()
+
 				if !reflect.DeepEqual(got, tt.want[attendee]) {
 					t.Errorf("claimSlots() = %v, want %v", got, tt.want[attendee])
 				}
@@ -153,7 +154,7 @@ func Test_claimSlots(t *testing.T) {
 func Test_payClaims(t *testing.T) {
 	type args struct {
 		ctx      context.Context
-		attendee *Attendee
+		attendee *User
 		claims   []SlotClaim
 		payments []FinancialInstrument
 	}
@@ -163,7 +164,7 @@ func Test_payClaims(t *testing.T) {
 		fulfilled bool
 	}
 
-	att01 := &Attendee{
+	att01 := &User{
 		Email:       "testmail01@gophercon.com",
 		CoCAccepted: true,
 	}
@@ -309,7 +310,7 @@ func Test_payClaims(t *testing.T) {
 }
 
 func Test_coverCredit(t *testing.T) {
-	att01 := &Attendee{
+	att01 := &User{
 		Email:       "testmail01@gophercon.com",
 		CoCAccepted: true,
 	}
@@ -365,7 +366,7 @@ func Test_coverCredit(t *testing.T) {
 }
 
 func Test_transferClaims(t *testing.T) {
-	att01 := &Attendee{
+	att01 := &User{
 		Email:       "testmail01@gophercon.com",
 		CoCAccepted: true,
 	}
@@ -374,7 +375,7 @@ func Test_transferClaims(t *testing.T) {
 		t.Fatalf("creating attendee: %v", err)
 	}
 
-	att02 := &Attendee{
+	att02 := &User{
 		Email:       "testmail02@gophercon.com",
 		CoCAccepted: true,
 	}
@@ -411,7 +412,7 @@ func Test_transferClaims(t *testing.T) {
 		t.Fatalf("attendee 2 remaining claim ID is not as expected, got: %d wanted %d", tAtt02.Claims[0].ID, claims01[1].ID)
 	}
 
-	rows, err := sqldb.Query(context.TODO(), "SELECT id, ticket_id, attendee_id FROM slot_claim WHERE attendee_id = $1 OR attendee_id = $2 ORDER BY id DESC", savedAttendee01.ID, savedAttendee02.ID)
+	rows, err := sqldb.Query(context.TODO(), "SELECT id, ticket_id, user_id FROM slot_claim WHERE user_id = $1 OR user_id = $2 ORDER BY id DESC", savedAttendee01.ID, savedAttendee02.ID)
 	if err != nil {
 		t.Fatalf("retrieving stored claims %v", err)
 	}
@@ -421,7 +422,7 @@ func Test_transferClaims(t *testing.T) {
 	for rows.Next() {
 		var id int64
 		var ticketID uuid.UUID
-		var attendeeID int64
+		var attendeeID uint32
 		err := rows.Scan(&id, &ticketID, &attendeeID)
 		if err != nil {
 			t.Fatalf("reading one claim %v", err)

@@ -3,14 +3,28 @@ package conferences
 import (
 	"context"
 	"testing"
+
+	"encore.dev/storage/sqldb"
 )
 
 func TestAddPaperRoundTrip(t *testing.T) {
 
 	t.Run("adds a paper for a specific conference", func(t *testing.T) {
 
+		tx, err := sqldb.Begin(context.TODO())
+		if err != nil {
+			t.Fatalf("beginning transaction: %v", err)
+		}
+		att01 := &User{
+			Email:       "testmail01@gophercon.com",
+			CoCAccepted: true,
+		}
+		savedAttendee01, err := createAttendee(context.TODO(), tx, att01)
+		if err := sqldb.Commit(tx); err != nil {
+			t.Fatalf("committing test setup transaction: %v", err)
+		}
 		paper := &Paper{
-			UserID:        "test_user_1",
+			UserID:        savedAttendee01.ID,
 			ConferenceID:  1,
 			Title:         "Test title",
 			ElevatorPitch: "Elevating elevator pitch",
@@ -30,7 +44,7 @@ func TestAddPaperRoundTrip(t *testing.T) {
 		result, err := GetPaper(ctx, &GetPaperParams{PaperID: response.PaperID})
 
 		if err != nil {
-			t.Fatalf("undexpected database error: %v", err)
+			t.Fatalf("unexpected database error: %v", err)
 		}
 
 		if result.Paper.UserID != paper.UserID {
