@@ -35,6 +35,7 @@ func ListApprovedJobs(ctx context.Context) (*ListApprovedJobsResponse, error) {
 			approved
 		FROM job_board
 		WHERE approved = true
+		ORDER BY rank
 `)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve all jobs: %w", err)

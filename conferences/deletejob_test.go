@@ -5,9 +5,9 @@ import (
 	"testing"
 )
 
-func TestDeletePaper(t *testing.T) {
+func TestDeleteJob(t *testing.T) {
 
-	t.Run("checks a paper can be deleted by a specific id", func(t *testing.T) {
+	t.Run("checks a job can be deleted by a specific id", func(t *testing.T) {
 
 		job := &Job{
 			CompanyName: "Unicorn",
@@ -28,7 +28,7 @@ func TestDeletePaper(t *testing.T) {
 		err = DeleteJob(ctx, &DeleteJobParams{JobID: response.Job.ID})
 
 		if err != nil {
-			t.Errorf("failed to delete paper: %v", err)
+			t.Errorf("failed to delete job: %v", err)
 		}
 	})
 
@@ -38,7 +38,7 @@ func TestDeletePaper(t *testing.T) {
 		err := DeleteJob(ctx, &DeleteJobParams{JobID: 0})
 
 		if err == nil {
-			t.Errorf("failed to delete paper: %v", err)
+			t.Errorf("failed to delete job: %v", err)
 		}
 	})
 }
