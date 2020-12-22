@@ -372,3 +372,15 @@ type VoucherInformation struct {
 	ValidTo       time.Time
 	ConferenceID  int
 }
+
+//Job represents the necessary information for a Job
+type Job struct {
+	ID          uint32
+	CompanyName string
+	Title       string
+	Description string
+	Link        string
+	Discord     string
+	Rank        int
+	Approved    bool
+}
