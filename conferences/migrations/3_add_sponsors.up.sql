@@ -1,6 +1,6 @@
 BEGIN;
 
---CREATE TYPE sponsorship_level AS ENUM ('platinum', 'gold', 'silver', 'bronze');
+CREATE TYPE sponsorship_level AS ENUM ('platinum', 'gold', 'silver', 'bronze');
 
 CREATE TABLE sponsor(
   id SERIAL PRIMARY KEY,
