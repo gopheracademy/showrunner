@@ -83,7 +83,7 @@ func readAttendee(ctx context.Context, tx *sqldb.Tx, email string, id int64) (*A
 
 	claims := []SlotClaim{}
 
-	sqlStatement = `SELECT id, ticket_id, redeemed FROM slot_claim 
+	sqlStatement = `SELECT id, ticket_id, redeemed FROM slot_claim
 	WHERE attendee_id = $1`
 	sqlArgs = []interface{}{results.ID}
 	var rows *sqldb.Rows
@@ -96,6 +96,9 @@ func readAttendee(ctx context.Context, tx *sqldb.Tx, email string, id int64) (*A
 	if err != nil {
 		return nil, fmt.Errorf("querying claims for attendee: %w", err)
 	}
+
+	defer rows.Close()
+
 	for rows.Next() {
 		claim := SlotClaim{}
 		err := rows.Scan(&claim.ID, &claim.TicketID, &claim.Redeemed)
@@ -112,7 +115,7 @@ func readAttendee(ctx context.Context, tx *sqldb.Tx, email string, id int64) (*A
 // createConferenceSlot saves a slot in the database.
 func createConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSlot, conferenceID int64) (*ConferenceSlot, error) {
 	var sqlStatement = `INSERT INTO conference_slot (conference_id, name, description, cost, capacity, start_date, end_date, purchaseable_from, purchaseable_until, available_to_public)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	RETURNING conference_id, name, description, cost, capacity, start_date, end_date, purchaseable_from, purchaseable_until, available_to_public`
 	var sqlArgs = []interface{}{
 		conferenceID,
@@ -164,7 +167,7 @@ func readConferenceSlotByID(ctx context.Context, tx *sqldb.Tx, id uint64, loadDe
 	results := ConferenceSlot{}
 	var row *sqldb.Row
 	sqlStatement := `SELECT id, name, description, cost, capacity, start_date, end_date, purchaseable_from, purchaseable_until, available_to_public, COALESCE(depends_on, 0)
-	FROM conference_slot 
+	FROM conference_slot
 	WHERE id = $1`
 	sqlArgs := []interface{}{id}
 	if tx != nil {
@@ -197,9 +200,9 @@ func readConferenceSlotByID(ctx context.Context, tx *sqldb.Tx, id uint64, loadDe
 // updateConferenceSlot updates conference slot fields from the passed instance
 func updateConferenceSlot(ctx context.Context, tx *sqldb.Tx, cslot *ConferenceSlot, conferenceID int64) error {
 	// Regular update
-	var sqlStatement = `UPDATE conference_slot 
-	SET conference_id = $1, name = $2, description = $3, cost =$4, capacity=$5, 
-	start_date = $6, end_date = $7, purchaseable_from = $8, purchaseable_until = $9, 
+	var sqlStatement = `UPDATE conference_slot
+	SET conference_id = $1, name = $2, description = $3, cost =$4, capacity=$5,
+	start_date = $6, end_date = $7, purchaseable_from = $8, purchaseable_until = $9,
 	available_to_public $10
 	WHERE id = $11`
 	var args = []interface{}{
